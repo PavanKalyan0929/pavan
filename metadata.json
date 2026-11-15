@@ -1,0 +1,8 @@
+{
+  "name": "Andhra Student Hub",
+  "description": "Statewide higher-education student services platform for Andhra Pradesh featuring college discovery, fee tracking, AI-assisted grievance redressal, scholarship directory, and institutional admin dashboards.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

@@ -1,0 +1,332 @@
+@import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
+
+@layer base {
+  :root {
+    --font-display: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+    --font-sans: 'DM Sans', system-ui, -apple-system, sans-serif;
+    --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+    --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+    --ease-snappy: cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  html {
+    font-family: var(--font-sans);
+    scroll-behavior: smooth;
+    color: #0F172A;
+    background-color: #F8FAFC;
+    color-scheme: light;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  html.dark {
+    color: #F8FAFC;
+    background-color: #020617;
+    color-scheme: dark;
+  }
+
+  h1, h2, h3, h4, .font-display {
+    font-family: var(--font-display);
+    text-wrap: balance;
+  }
+
+  .font-mono, .tabular-nums {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Accessible high-contrast keyboard focus rings */
+  :is(a, button, input, select, textarea, [tabindex]):focus-visible {
+    outline: 2px solid #1E40AF;
+    outline-offset: 2px;
+  }
+
+  html.dark :is(a, button, input, select, textarea, [tabindex]):focus-visible {
+    outline-color: #60A5FA;
+  }
+
+  /* Subtle themed scrollbars */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(148, 163, 184, 0.45) transparent;
+  }
+
+  html.dark * {
+    scrollbar-color: rgba(71, 85, 105, 0.7) transparent;
+  }
+}
+
+/* ==========================================================================
+   Compositor-Only Motion & Frontend Surface Utilities
+   ========================================================================== */
+
+@keyframes ash-fade-slide-up {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 10px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes ash-modal-pop {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 8px, 0) scale(0.975);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@keyframes ash-backdrop-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes ash-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+@keyframes ash-typing-bounce {
+  0%, 80%, 100% {
+    opacity: 0.35;
+    transform: translate3d(0, 0, 0);
+  }
+  40% {
+    opacity: 1;
+    transform: translate3d(0, -3px, 0);
+  }
+}
+
+@layer utilities {
+  /* Subtle architectural blueprint grid for the Hero canvas */
+  .ash-hero-grid {
+    background-image:
+      linear-gradient(to right, rgba(15, 23, 42, 0.04) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(15, 23, 42, 0.04) 1px, transparent 1px);
+    background-size: 40px 40px;
+  }
+
+  html.dark .ash-hero-grid {
+    background-image:
+      linear-gradient(to right, rgba(148, 163, 184, 0.06) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(148, 163, 184, 0.06) 1px, transparent 1px);
+    background-size: 40px 40px;
+  }
+
+  /* Interactive card micro-lift using compositor-only transform + border/shadow settle */
+  .ash-card-interactive {
+    transition:
+      transform 180ms var(--ease-out-expo),
+      border-color 180ms ease,
+      box-shadow 180ms var(--ease-out-expo);
+    will-change: transform;
+  }
+
+  .ash-card-interactive:hover {
+    transform: translate3d(0, -2px, 0);
+    box-shadow: 0 8px 24px -10px rgba(15, 23, 42, 0.12);
+  }
+
+  html.dark .ash-card-interactive:hover {
+    box-shadow: 0 10px 26px -10px rgba(2, 6, 23, 0.75);
+  }
+
+  .ash-card-interactive:active {
+    transform: translate3d(0, 0, 0) scale(0.995);
+  }
+
+  /* Tactile button press settle <= 150ms */
+  .ash-btn-press {
+    transition:
+      transform 140ms var(--ease-out-expo),
+      background-color 150ms ease,
+      border-color 150ms ease,
+      color 150ms ease,
+      box-shadow 150ms ease;
+  }
+
+  .ash-btn-press:active:not(:disabled) {
+    transform: scale(0.975);
+  }
+
+  /* Subtle link underline reveal */
+  .ash-link-underline {
+    position: relative;
+  }
+
+  .ash-link-underline::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -2px;
+    height: 1.5px;
+    background-color: currentColor;
+    transform: scaleX(0);
+    transform-origin: left center;
+    transition: transform 180ms var(--ease-out-expo);
+  }
+
+  .ash-link-underline:hover::after {
+    transform: scaleX(1);
+  }
+
+  /* CSS entry animations */
+  .ash-animate-in {
+    animation: ash-fade-slide-up 240ms var(--ease-out-expo) both;
+  }
+
+  .ash-modal-panel {
+    animation: ash-modal-pop 200ms var(--ease-out-expo) both;
+  }
+
+  .ash-modal-backdrop {
+    animation: ash-backdrop-fade 160ms ease-out both;
+  }
+
+  /* Dual-theme skeleton shimmer */
+  .ash-skeleton {
+    background: linear-gradient(
+      90deg,
+      rgba(226, 232, 240, 0.65) 25%,
+      rgba(241, 245, 249, 0.95) 50%,
+      rgba(226, 232, 240, 0.65) 75%
+    );
+    background-size: 200% 100%;
+    animation: ash-shimmer 1.5s infinite linear;
+  }
+
+  html.dark .ash-skeleton {
+    background: linear-gradient(
+      90deg,
+      rgba(30, 41, 59, 0.7) 25%,
+      rgba(51, 65, 85, 0.85) 50%,
+      rgba(30, 41, 59, 0.7) 75%
+    );
+    background-size: 200% 100%;
+    animation: ash-shimmer 1.5s infinite linear;
+  }
+
+  /* AI typing indicator dots */
+  .ash-typing-dot {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 9999px;
+    background-color: currentColor;
+    animation: ash-typing-bounce 1.1s infinite ease-in-out;
+  }
+
+  .ash-typing-dot:nth-child(2) {
+    animation-delay: 0.16s;
+  }
+
+  .ash-typing-dot:nth-child(3) {
+    animation-delay: 0.32s;
+  }
+
+  /* Institutional Digital ID 3D Flip & Subtle Metallic Hairline Sheen */
+  .ash-perspective {
+    perspective: 1200px;
+  }
+
+  .ash-card-3d {
+    transform-style: preserve-3d;
+    transition: transform 420ms var(--ease-out-expo);
+  }
+
+  .ash-card-3d.is-flipped {
+    transform: rotateY(180deg);
+  }
+
+  .ash-card-face {
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+  }
+
+  .ash-card-back {
+    transform: rotateY(180deg);
+  }
+
+  .ash-id-sheen {
+    background-image: linear-gradient(
+      135deg,
+      rgba(30, 64, 175, 0.14) 0%,
+      rgba(15, 23, 42, 0) 45%,
+      rgba(91, 33, 182, 0.14) 100%
+    );
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  .ash-animate-in,
+  .ash-modal-panel,
+  .ash-modal-backdrop,
+  .ash-skeleton,
+  .ash-typing-dot {
+    animation: none !important;
+  }
+
+  .ash-card-interactive,
+  .ash-btn-press,
+  .ash-card-3d,
+  .ash-link-underline::after {
+    transition: none !important;
+  }
+
+  .ash-card-interactive:hover,
+  .ash-card-interactive:active,
+  .ash-btn-press:active:not(:disabled) {
+    transform: none !important;
+  }
+}
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .ash-print-sheet,
+  .ash-print-sheet * {
+    visibility: visible;
+  }
+  .ash-print-overlay {
+    position: static !important;
+    background: transparent !important;
+    padding: 0 !important;
+  }
+  .ash-print-container {
+    border: none !important;
+    background: transparent !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+  .ash-print-sheet {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    border: none !important;
+    box-shadow: none !important;
+  }
+  .ash-no-print {
+    display: none !important;
+  }
+}

@@ -1,0 +1,660 @@
+{
+  "entities": {
+    "College": {
+      "title": "College",
+      "description": "Andhra Pradesh degree or engineering institution record (clearly labelled DEMO until verified institutional import).",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "code": { "type": "string", "maxLength": 32 },
+        "name": { "type": "string", "maxLength": 200 },
+        "location": { "type": "string", "maxLength": 120 },
+        "district": { "type": "string", "maxLength": 80 },
+        "address": { "type": "string", "maxLength": 300 },
+        "website": { "type": "string", "maxLength": 240 },
+        "contactEmail": { "type": "string", "maxLength": 180 },
+        "contactPhone": { "type": "string", "maxLength": 80 },
+        "management": { "type": "string", "enum": ["Government", "Private Aided", "Private Un-aided", "Autonomous"] },
+        "category": { "type": "string", "enum": ["Engineering & Technology", "Degree & PG", "University Campus", "Polytechnic & Technical"] },
+        "affiliatedUniversity": { "type": "string", "maxLength": 160 },
+        "accreditation": { "type": "string", "maxLength": 160 },
+        "verificationStatus": { "type": "string", "enum": ["DEMO", "Verified", "Pending Verification"] },
+        "isDemo": { "type": "boolean" },
+        "coursesCount": { "type": "number" },
+        "courses": { "type": "array" },
+        "departments": { "type": "array" },
+        "sourceUrl": { "type": "string", "maxLength": 240 },
+        "lastVerifiedDate": { "type": "string", "maxLength": 40 },
+        "integrationStatus": { "type": "string", "enum": ["Connected", "Read-Only Sync", "Requires Integration"] },
+        "integrationAdapter": { "type": "string", "maxLength": 80 },
+        "lastSyncAt": { "type": "string", "maxLength": 64 },
+        "logoUrl": { "type": "string", "maxLength": 300 },
+        "mainCampusPhotoUrl": { "type": "string", "maxLength": 300 },
+        "mainCampusPhotoStatus": { "type": "string", "enum": ["Verified", "Pending Approval", "Unavailable"] },
+        "photoSource": { "type": "string", "maxLength": 240 },
+        "photoLicense": { "type": "string", "maxLength": 180 },
+        "verifiedPhotosCount": { "type": "number" },
+        "studentActivityPhotosCount": { "type": "number" },
+        "lastPhotoVerifiedAt": { "type": "string", "maxLength": 64 },
+        "adminEmails": { "type": "array" },
+        "updatedByUid": { "type": "string", "maxLength": 128 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "code", "name", "district", "address", "management", "affiliatedUniversity", "accreditation", "verificationStatus", "isDemo", "coursesCount", "adminEmails", "updatedByUid", "createdAt", "updatedAt"]
+    },
+    "Department": {
+      "title": "Department",
+      "description": "Academic department inside a college.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "collegeId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "collegeCode": { "type": "string", "maxLength": 32 },
+        "name": { "type": "string", "maxLength": 160 },
+        "code": { "type": "string", "maxLength": 32 },
+        "hodName": { "type": "string", "maxLength": 120 },
+        "contactEmail": { "type": "string", "maxLength": 180 },
+        "isDemo": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "collegeId", "collegeCode", "name", "code", "hodName", "contactEmail", "isDemo", "createdAt", "updatedAt"]
+    },
+    "Course": {
+      "title": "Course",
+      "description": "Academic degree or engineering programme offered by a college.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "collegeId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "collegeCode": { "type": "string", "maxLength": 32 },
+        "name": { "type": "string", "maxLength": 160 },
+        "degreeLevel": { "type": "string", "enum": ["UG", "PG", "Diploma", "Integrated"] },
+        "branch": { "type": "string", "maxLength": 120 },
+        "department": { "type": "string", "maxLength": 120 },
+        "durationYears": { "type": "number" },
+        "intake": { "type": "number" },
+        "isDemo": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "collegeId", "collegeCode", "name", "degreeLevel", "branch", "durationYears", "intake", "isDemo", "createdAt", "updatedAt"]
+    },
+    "CollegeIntegration": {
+      "title": "CollegeIntegration",
+      "description": "Read-only college ERP / student database integration configuration.",
+      "type": "object",
+      "properties": {
+        "collegeId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "collegeCode": { "type": "string", "maxLength": 32 },
+        "collegeName": { "type": "string", "maxLength": 200 },
+        "district": { "type": "string", "maxLength": 80 },
+        "adapterType": { "type": "string", "enum": ["None", "REST_API_READONLY", "CSV_XLSX_IMPORT", "SFTP_BATCH", "WEBHOOK_SYNC"] },
+        "status": { "type": "string", "enum": ["Connected", "Read-Only Sync", "Requires Integration"] },
+        "readOnlySync": { "type": "boolean" },
+        "authorizedByOfficer": { "type": "string", "maxLength": 160 },
+        "authorizationRef": { "type": "string", "maxLength": 120 },
+        "endpointUrl": { "type": "string", "maxLength": 240 },
+        "lastSyncAt": { "type": "string", "maxLength": 64 },
+        "lastSyncStatus": { "type": "string", "enum": ["Idle", "Success", "Partial", "Failed"] },
+        "recordsSynced": { "type": "number" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["collegeId", "collegeCode", "collegeName", "district", "adapterType", "status", "readOnlySync", "authorizedByOfficer", "authorizationRef", "endpointUrl", "lastSyncAt", "lastSyncStatus", "recordsSynced", "updatedAt"]
+    },
+    "FeeStructure": {
+      "title": "FeeStructure",
+      "description": "Institutional fee category schedule and due dates.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "collegeId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "collegeCode": { "type": "string", "maxLength": 32 },
+        "academicYear": { "type": "string", "maxLength": 32 },
+        "course": { "type": "string", "maxLength": 120 },
+        "category": { "type": "string", "enum": ["Tuition Fee", "Hostel & Mess", "Exam Fee", "Lab & Library", "Transport", "Miscellaneous"] },
+        "amount": { "type": "number" },
+        "dueDate": { "type": "string", "maxLength": 40 },
+        "isDemo": { "type": "boolean" },
+        "updatedByUid": { "type": "string", "maxLength": 128 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "collegeId", "collegeCode", "academicYear", "course", "category", "amount", "dueDate", "isDemo", "updatedByUid", "createdAt", "updatedAt"]
+    },
+    "CollegeAdmin": {
+      "title": "CollegeAdmin",
+      "description": "Authorized college administrator bound to a single college.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "email": { "type": "string", "maxLength": 180 },
+        "fullName": { "type": "string", "maxLength": 120 },
+        "designation": { "type": "string", "maxLength": 120 },
+        "collegeId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "collegeCode": { "type": "string", "maxLength": 32 },
+        "collegeName": { "type": "string", "maxLength": 200 },
+        "status": { "type": "string", "enum": ["pending", "active", "revoked"] },
+        "active": { "type": "boolean" },
+        "approvedByUid": { "type": "string", "maxLength": 128 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email", "fullName", "designation", "collegeId", "collegeCode", "collegeName", "status", "active", "approvedByUid", "createdAt", "updatedAt"]
+    },
+    "StateAdmin": {
+      "title": "StateAdmin",
+      "description": "State-level platform administrator.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "email": { "type": "string", "maxLength": 180 },
+        "fullName": { "type": "string", "maxLength": 120 },
+        "active": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email", "fullName", "active", "createdAt"]
+    },
+    "Student": {
+      "title": "Student",
+      "description": "Registered Andhra Pradesh college student profile.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "fullName": { "type": "string", "maxLength": 120 },
+        "email": { "type": "string", "maxLength": 180 },
+        "collegeEmail": { "type": "string", "maxLength": 180 },
+        "collegeEmailVerified": { "type": "boolean" },
+        "otpVerifiedAt": { "type": "string", "maxLength": 64 },
+        "mobile": { "type": "string", "maxLength": 20 },
+        "collegeId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "collegeCode": { "type": "string", "maxLength": 32 },
+        "collegeName": { "type": "string", "maxLength": 200 },
+        "district": { "type": "string", "maxLength": 80 },
+        "studentRollId": { "type": "string", "maxLength": 64 },
+        "course": { "type": "string", "maxLength": 120 },
+        "branch": { "type": "string", "maxLength": 120 },
+        "department": { "type": "string", "maxLength": 120 },
+        "academicYear": { "type": "string", "maxLength": 32 },
+        "admissionYear": { "type": "string", "maxLength": 16 },
+        "verificationStatus": { "type": "string", "enum": ["Pending", "Verified", "Rejected"] },
+        "verifiedByUid": { "type": "string", "maxLength": 128 },
+        "collegeAdminEmails": { "type": "array" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "fullName", "email", "mobile", "collegeId", "collegeCode", "collegeName", "district", "studentRollId", "course", "branch", "academicYear", "verificationStatus", "verifiedByUid", "collegeAdminEmails", "createdAt", "updatedAt"]
+    },
+    "FeeRecord": {
+      "title": "FeeRecord",
+      "description": "College-wise student fee summary record.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "studentUid": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "studentRollId": { "type": "string", "maxLength": 64 },
+        "studentName": { "type": "string", "maxLength": 120 },
+        "collegeId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "collegeName": { "type": "string", "maxLength": 200 },
+        "academicYear": { "type": "string", "maxLength": 32 },
+        "semester": { "type": "string", "maxLength": 32 },
+        "feeCategory": { "type": "string", "maxLength": 64 },
+        "dueDate": { "type": "string", "maxLength": 40 },
+        "totalFee": { "type": "number" },
+        "paidAmount": { "type": "number" },
+        "pendingAmount": { "type": "number" },
+        "isDemo": { "type": "boolean" },
+        "status": { "type": "string", "enum": ["Pending", "Partial", "Paid", "Disputed"] },
+        "discrepancyReported": { "type": "boolean" },
+        "discrepancyNote": { "type": "string", "maxLength": 600 },
+        "collegeAdminEmails": { "type": "array" },
+        "updatedByUid": { "type": "string", "maxLength": 128 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "studentUid", "studentRollId", "studentName", "collegeId", "collegeName", "academicYear", "semester", "totalFee", "paidAmount", "pendingAmount", "isDemo", "status", "discrepancyReported", "discrepancyNote", "collegeAdminEmails", "updatedByUid", "createdAt", "updatedAt"]
+    },
+    "FeePayment": {
+      "title": "FeePayment",
+      "description": "Individual fee payment transaction and receipt reference.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "feeRecordId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "studentUid": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "collegeId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "amount": { "type": "number" },
+        "receiptNumber": { "type": "string", "maxLength": 64 },
+        "paymentMode": { "type": "string", "enum": ["UPI", "NEFT", "Challan", "Scholarship Reimbursement", "DEMO"] },
+        "isDemo": { "type": "boolean" },
+        "paidAtLabel": { "type": "string", "maxLength": 64 },
+        "collegeAdminEmails": { "type": "array" },
+        "recordedByUid": { "type": "string", "maxLength": 128 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "feeRecordId", "studentUid", "collegeId", "amount", "receiptNumber", "paymentMode", "isDemo", "paidAtLabel", "collegeAdminEmails", "recordedByUid", "createdAt"]
+    },
+    "Grievance": {
+      "title": "Grievance",
+      "description": "Student grievance with AI-assisted triage and college/state escalation workflow.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "trackingNumber": { "type": "string", "maxLength": 40 },
+        "studentUid": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "studentName": { "type": "string", "maxLength": 120 },
+        "contactEmail": { "type": "string", "maxLength": 180 },
+        "contactMobile": { "type": "string", "maxLength": 20 },
+        "collegeId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "collegeName": { "type": "string", "maxLength": 200 },
+        "district": { "type": "string", "maxLength": 80 },
+        "category": { "type": "string", "maxLength": 80 },
+        "subject": { "type": "string", "maxLength": 180 },
+        "description": { "type": "string", "maxLength": 2500 },
+        "aiSuggestedCategory": { "type": "string", "maxLength": 80 },
+        "aiUrgency": { "type": "string", "enum": ["Low", "Medium", "High", "Critical"] },
+        "aiTriageSummary": { "type": "string", "maxLength": 600 },
+        "aiVerificationDisclaimer": { "type": "string", "maxLength": 200 },
+        "status": { "type": "string", "enum": ["Submitted", "Under College Review", "Escalated to University/State", "Resolved", "Closed"] },
+        "escalationLevel": { "type": "string", "enum": ["College Nodal Officer", "Principal / Dean", "University Grievance Cell", "State Oversight"] },
+        "resolutionNotes": { "type": "string", "maxLength": 1500 },
+        "handledByUid": { "type": "string", "maxLength": 128 },
+        "collegeAdminEmails": { "type": "array" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "trackingNumber", "studentUid", "studentName", "contactEmail", "contactMobile", "collegeId", "collegeName", "district", "category", "subject", "description", "aiSuggestedCategory", "aiUrgency", "aiTriageSummary", "aiVerificationDisclaimer", "status", "escalationLevel", "resolutionNotes", "handledByUid", "collegeAdminEmails", "createdAt", "updatedAt"]
+    },
+    "GrievanceEvidence": {
+      "title": "GrievanceEvidence",
+      "description": "Uploaded evidence metadata and human verification status for a grievance.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "grievanceId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "studentUid": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "collegeId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "fileName": { "type": "string", "maxLength": 200 },
+        "mimeType": { "type": "string", "maxLength": 80 },
+        "sizeBytes": { "type": "number" },
+        "sha256": { "type": "string", "maxLength": 80 },
+        "storagePath": { "type": "string", "maxLength": 300 },
+        "aiAssistNote": { "type": "string", "maxLength": 600 },
+        "humanVerificationStatus": { "type": "string", "enum": ["Pending Human Verification", "Verified by Authority", "Needs Clarification"] },
+        "verifiedByUid": { "type": "string", "maxLength": 128 },
+        "collegeAdminEmails": { "type": "array" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "grievanceId", "studentUid", "collegeId", "fileName", "mimeType", "sizeBytes", "sha256", "storagePath", "aiAssistNote", "humanVerificationStatus", "verifiedByUid", "collegeAdminEmails", "createdAt"]
+    },
+    "Scholarship": {
+      "title": "Scholarship",
+      "description": "Scholarship scheme entry in directory (labelled DEMO where sample).",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "title": { "type": "string", "maxLength": 200 },
+        "provider": { "type": "string", "maxLength": 160 },
+        "scholarshipType": { "type": "string", "enum": ["State Government", "Central Government", "Private / Institutional"] },
+        "category": { "type": "string", "maxLength": 80 },
+        "amountLabel": { "type": "string", "maxLength": 120 },
+        "eligibilitySummary": { "type": "string", "maxLength": 600 },
+        "requiredDocuments": { "type": "array" },
+        "deadlineLabel": { "type": "string", "maxLength": 64 },
+        "officialPortalUrl": { "type": "string", "maxLength": 240 },
+        "isDemo": { "type": "boolean" },
+        "active": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "title", "provider", "category", "amountLabel", "eligibilitySummary", "deadlineLabel", "officialPortalUrl", "isDemo", "active", "createdAt"]
+    },
+    "ScholarshipApplication": {
+      "title": "ScholarshipApplication",
+      "description": "Student scholarship application tracking record.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "scholarshipId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "scholarshipTitle": { "type": "string", "maxLength": 200 },
+        "studentUid": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "studentName": { "type": "string", "maxLength": 120 },
+        "collegeId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "collegeName": { "type": "string", "maxLength": 200 },
+        "applicationRef": { "type": "string", "maxLength": 64 },
+        "status": { "type": "string", "enum": ["Draft", "Submitted", "Institution Verified", "Disbursement Pending", "Disbursed", "Query Raised"] },
+        "grievanceNote": { "type": "string", "maxLength": 600 },
+        "collegeAdminEmails": { "type": "array" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "scholarshipId", "scholarshipTitle", "studentUid", "studentName", "collegeId", "collegeName", "applicationRef", "status", "grievanceNote", "collegeAdminEmails", "createdAt", "updatedAt"]
+    },
+    "Notification": {
+      "title": "Notification",
+      "description": "Platform, college, or student-specific notification/announcement.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "title": { "type": "string", "maxLength": 180 },
+        "message": { "type": "string", "maxLength": 1000 },
+        "scope": { "type": "string", "enum": ["state", "college", "student"] },
+        "category": { "type": "string", "enum": ["Announcement", "Scholarship", "Fee Alert", "Grievance Update", "NPTEL", "Exam Update"] },
+        "collegeId": { "type": "string", "maxLength": 128 },
+        "targetUid": { "type": "string", "maxLength": 128 },
+        "authorUid": { "type": "string", "maxLength": 128 },
+        "authorRole": { "type": "string", "enum": ["state_admin", "college_admin", "system"] },
+        "collegeAdminEmails": { "type": "array" },
+        "isDemo": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "title", "message", "scope", "category", "collegeId", "targetUid", "authorUid", "authorRole", "collegeAdminEmails", "isDemo", "createdAt"]
+    },
+    "AuditLog": {
+      "title": "AuditLog",
+      "description": "Immutable administrative and operational audit log entry.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "actorUid": { "type": "string", "maxLength": 128 },
+        "actorEmail": { "type": "string", "maxLength": 180 },
+        "actorRole": { "type": "string", "enum": ["state_admin", "college_admin", "student"] },
+        "action": { "type": "string", "maxLength": 120 },
+        "targetCollection": { "type": "string", "maxLength": 80 },
+        "targetId": { "type": "string", "maxLength": 128 },
+        "collegeId": { "type": "string", "maxLength": 128 },
+        "summary": { "type": "string", "maxLength": 400 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "actorUid", "actorEmail", "actorRole", "action", "targetCollection", "targetId", "collegeId", "summary", "createdAt"]
+    },
+    "AcademicRecord": {
+      "title": "AcademicRecord",
+      "description": "Student subject-wise attendance, internal/external marks, and semester exam result.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "studentUid": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "studentRollId": { "type": "string", "maxLength": 64 },
+        "studentName": { "type": "string", "maxLength": 120 },
+        "collegeId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "collegeCode": { "type": "string", "maxLength": 32 },
+        "academicYear": { "type": "string", "maxLength": 32 },
+        "semester": { "type": "string", "maxLength": 32 },
+        "subjectCode": { "type": "string", "maxLength": 32 },
+        "subjectName": { "type": "string", "maxLength": 160 },
+        "facultyName": { "type": "string", "maxLength": 120 },
+        "credits": { "type": "number" },
+        "classesTotal": { "type": "number" },
+        "classesAttended": { "type": "number" },
+        "internalMarks": { "type": "number" },
+        "externalMarks": { "type": "number" },
+        "totalMarks": { "type": "number" },
+        "grade": { "type": "string", "enum": ["O", "A+", "A", "B+", "B", "C", "F", "Pending"] },
+        "resultStatus": { "type": "string", "enum": ["Pass", "Fail", "Pending"] },
+        "isDemo": { "type": "boolean" },
+        "collegeAdminEmails": { "type": "array" },
+        "updatedByUid": { "type": "string", "maxLength": 128 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "studentUid", "studentRollId", "studentName", "collegeId", "collegeCode", "academicYear", "semester", "subjectCode", "subjectName", "facultyName", "credits", "classesTotal", "classesAttended", "internalMarks", "externalMarks", "totalMarks", "grade", "resultStatus", "isDemo", "collegeAdminEmails", "updatedByUid", "createdAt", "updatedAt"]
+    },
+    "TimetableSlot": {
+      "title": "TimetableSlot",
+      "description": "Weekly institutional lecture, lab, or tutorial slot.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "collegeId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "collegeCode": { "type": "string", "maxLength": 32 },
+        "department": { "type": "string", "maxLength": 120 },
+        "academicYear": { "type": "string", "maxLength": 32 },
+        "semester": { "type": "string", "maxLength": 32 },
+        "dayOfWeek": { "type": "string", "enum": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"] },
+        "startTime": { "type": "string", "maxLength": 20 },
+        "endTime": { "type": "string", "maxLength": 20 },
+        "subjectCode": { "type": "string", "maxLength": 32 },
+        "subjectName": { "type": "string", "maxLength": 160 },
+        "facultyName": { "type": "string", "maxLength": 120 },
+        "roomNumber": { "type": "string", "maxLength": 40 },
+        "slotType": { "type": "string", "enum": ["Lecture", "Lab", "Tutorial", "Seminar"] },
+        "isDemo": { "type": "boolean" },
+        "updatedByUid": { "type": "string", "maxLength": 128 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "collegeId", "collegeCode", "department", "academicYear", "semester", "dayOfWeek", "startTime", "endTime", "subjectCode", "subjectName", "facultyName", "roomNumber", "slotType", "isDemo", "updatedByUid", "createdAt", "updatedAt"]
+    },
+    "PlacementOpportunity": {
+      "title": "PlacementOpportunity",
+      "description": "Campus placement, full-time job, or internship opportunity.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "collegeId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "collegeCode": { "type": "string", "maxLength": 32 },
+        "title": { "type": "string", "maxLength": 200 },
+        "companyName": { "type": "string", "maxLength": 160 },
+        "opportunityType": { "type": "string", "enum": ["Campus Placement", "Full-Time Job", "Internship"] },
+        "roleCategory": { "type": "string", "maxLength": 100 },
+        "ctcOrStipend": { "type": "string", "maxLength": 80 },
+        "location": { "type": "string", "maxLength": 120 },
+        "eligibilityCriteria": { "type": "string", "maxLength": 300 },
+        "minCgpa": { "type": "number" },
+        "deadlineDate": { "type": "string", "maxLength": 40 },
+        "applyUrl": { "type": "string", "maxLength": 240 },
+        "status": { "type": "string", "enum": ["Open", "Shortlisting", "Closed"] },
+        "description": { "type": "string", "maxLength": 1200 },
+        "isDemo": { "type": "boolean" },
+        "postedByUid": { "type": "string", "maxLength": 128 },
+        "collegeAdminEmails": { "type": "array" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "collegeId", "collegeCode", "title", "companyName", "opportunityType", "roleCategory", "ctcOrStipend", "location", "eligibilityCriteria", "minCgpa", "deadlineDate", "applyUrl", "status", "description", "isDemo", "postedByUid", "collegeAdminEmails", "createdAt", "updatedAt"]
+    },
+    "PlacementApplication": {
+      "title": "PlacementApplication",
+      "description": "Student placement, job, or internship application record.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "opportunityId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "opportunityTitle": { "type": "string", "maxLength": 200 },
+        "companyName": { "type": "string", "maxLength": 160 },
+        "opportunityType": { "type": "string", "enum": ["Campus Placement", "Full-Time Job", "Internship"] },
+        "studentUid": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "studentName": { "type": "string", "maxLength": 120 },
+        "studentRollId": { "type": "string", "maxLength": 64 },
+        "collegeId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "collegeName": { "type": "string", "maxLength": 200 },
+        "cgpaSnapshot": { "type": "number" },
+        "resumeSnapshotId": { "type": "string", "maxLength": 128 },
+        "coverNote": { "type": "string", "maxLength": 800 },
+        "status": { "type": "string", "enum": ["Applied", "Shortlisted", "Interview Scheduled", "Selected", "Not Selected", "Withdrawn"] },
+        "authorityRemark": { "type": "string", "maxLength": 600 },
+        "collegeAdminEmails": { "type": "array" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "opportunityId", "opportunityTitle", "companyName", "opportunityType", "studentUid", "studentName", "studentRollId", "collegeId", "collegeName", "cgpaSnapshot", "resumeSnapshotId", "coverNote", "status", "authorityRemark", "collegeAdminEmails", "createdAt", "updatedAt"]
+    },
+    "StudentResume": {
+      "title": "StudentResume",
+      "description": "Structured student career resume profile stored securely per student UID.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "collegeId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "headline": { "type": "string", "maxLength": 180 },
+        "summary": { "type": "string", "maxLength": 1200 },
+        "cgpa": { "type": "number" },
+        "skills": { "type": "array" },
+        "educationSummary": { "type": "string", "maxLength": 400 },
+        "projects": { "type": "array" },
+        "certifications": { "type": "array" },
+        "linkedinUrl": { "type": "string", "maxLength": 240 },
+        "githubUrl": { "type": "string", "maxLength": 240 },
+        "portfolioUrl": { "type": "string", "maxLength": 240 },
+        "collegeAdminEmails": { "type": "array" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "collegeId", "headline", "summary", "cgpa", "skills", "educationSummary", "projects", "certifications", "linkedinUrl", "githubUrl", "portfolioUrl", "collegeAdminEmails", "updatedAt"]
+    },
+    "CollegeService": {
+      "title": "CollegeService",
+      "description": "Student campus service allocation or request (Hostel, Transport, Library).",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "studentUid": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "studentRollId": { "type": "string", "maxLength": 64 },
+        "studentName": { "type": "string", "maxLength": 120 },
+        "collegeId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "collegeCode": { "type": "string", "maxLength": 32 },
+        "serviceType": { "type": "string", "enum": ["Hostel", "Transport", "Library"] },
+        "requestTitle": { "type": "string", "maxLength": 180 },
+        "referenceCode": { "type": "string", "maxLength": 64 },
+        "detailsPrimary": { "type": "string", "maxLength": 240 },
+        "detailsSecondary": { "type": "string", "maxLength": 240 },
+        "status": { "type": "string", "enum": ["Requested", "Approved", "Active", "Action Required", "Closed"] },
+        "authorityRemark": { "type": "string", "maxLength": 600 },
+        "isDemo": { "type": "boolean" },
+        "collegeAdminEmails": { "type": "array" },
+        "handledByUid": { "type": "string", "maxLength": 128 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "studentUid", "studentRollId", "studentName", "collegeId", "collegeCode", "serviceType", "requestTitle", "referenceCode", "detailsPrimary", "detailsSecondary", "status", "authorityRemark", "isDemo", "collegeAdminEmails", "handledByUid", "createdAt", "updatedAt"]
+    },
+    "CollegeMedia": {
+      "title": "CollegeMedia",
+      "description": "Verified real-world institutional photograph or official logo mapped strictly to a single AP college with source, permission/license, PII attestation, and State Admin review workflow.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "collegeId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "collegeCode": { "type": "string", "maxLength": 32 },
+        "collegeName": { "type": "string", "maxLength": 200 },
+        "district": { "type": "string", "maxLength": 80 },
+        "mediaCategory": { "type": "string", "enum": ["Official Logo", "Main Campus & Entrance", "Academic Building", "Classroom & Lecture Hall", "Computer & Engineering Lab", "Library & Reading Room", "Student Activity & Events", "Student-Faculty Communication", "Help Desk & Administration", "Infrastructure & Facilities"] },
+        "title": { "type": "string", "maxLength": 180 },
+        "caption": { "type": "string", "maxLength": 400 },
+        "imageUrl": { "type": "string", "maxLength": 300 },
+        "storagePath": { "type": "string", "maxLength": 300 },
+        "mimeType": { "type": "string", "maxLength": 64 },
+        "width": { "type": "number" },
+        "height": { "type": "number" },
+        "sizeBytes": { "type": "number" },
+        "sha256": { "type": "string", "maxLength": 80 },
+        "sourceUrl": { "type": "string", "maxLength": 300 },
+        "licenseOrPermission": { "type": "string", "maxLength": 240 },
+        "consentAttested": { "type": "boolean" },
+        "approvalStatus": { "type": "string", "enum": ["Pending Approval", "Approved", "Rejected"] },
+        "reviewRemark": { "type": "string", "maxLength": 500 },
+        "uploadedByUid": { "type": "string", "maxLength": 128 },
+        "uploadedByEmail": { "type": "string", "maxLength": 180 },
+        "reviewedByUid": { "type": "string", "maxLength": 128 },
+        "collegeAdminEmails": { "type": "array" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "collegeId", "collegeCode", "collegeName", "district", "mediaCategory", "title", "caption", "imageUrl", "storagePath", "mimeType", "width", "height", "sizeBytes", "sha256", "sourceUrl", "licenseOrPermission", "consentAttested", "approvalStatus", "reviewRemark", "uploadedByUid", "uploadedByEmail", "reviewedByUid", "collegeAdminEmails", "createdAt", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/colleges/{collegeId}": {
+      "schema": { "$ref": "#/entities/College" },
+      "description": "College directory documents (verified imports or admin-managed records)."
+    },
+    "/departments/{departmentId}": {
+      "schema": { "$ref": "#/entities/Department" },
+      "description": "Academic departments per college."
+    },
+    "/courses/{courseId}": {
+      "schema": { "$ref": "#/entities/Course" },
+      "description": "Courses and programmes offered by colleges."
+    },
+    "/college_integrations/{collegeId}": {
+      "schema": { "$ref": "#/entities/CollegeIntegration" },
+      "description": "College ERP read-only integration metadata and status."
+    },
+    "/fee_structures/{structureId}": {
+      "schema": { "$ref": "#/entities/FeeStructure" },
+      "description": "Institutional fee schedules and category due dates."
+    },
+    "/college_admins/{uid}": {
+      "schema": { "$ref": "#/entities/CollegeAdmin" },
+      "description": "College admin role bindings and pending requests."
+    },
+    "/state_admins/{uid}": {
+      "schema": { "$ref": "#/entities/StateAdmin" },
+      "description": "State-level platform administrator registry."
+    },
+    "/students/{uid}": {
+      "schema": { "$ref": "#/entities/Student" },
+      "description": "Authenticated student profiles isolated by UID and collegeId."
+    },
+    "/fee_records/{recordId}": {
+      "schema": { "$ref": "#/entities/FeeRecord" },
+      "description": "Student fee ledger summaries isolated by studentUid and collegeId."
+    },
+    "/fee_payments/{paymentId}": {
+      "schema": { "$ref": "#/entities/FeePayment" },
+      "description": "Individual fee payment receipts isolated by studentUid and collegeId."
+    },
+    "/grievances/{grievanceId}": {
+      "schema": { "$ref": "#/entities/Grievance" },
+      "description": "Student grievance records with AI-assisted triage metadata."
+    },
+    "/grievance_evidence/{evidenceId}": {
+      "schema": { "$ref": "#/entities/GrievanceEvidence" },
+      "description": "Uploaded evidence metadata requiring human verification."
+    },
+    "/scholarships/{scholarshipId}": {
+      "schema": { "$ref": "#/entities/Scholarship" },
+      "description": "Scholarship schemes directory."
+    },
+    "/scholarship_applications/{applicationId}": {
+      "schema": { "$ref": "#/entities/ScholarshipApplication" },
+      "description": "Student scholarship tracking applications."
+    },
+    "/notifications/{notificationId}": {
+      "schema": { "$ref": "#/entities/Notification" },
+      "description": "State, college, and student-targeted notifications."
+    },
+    "/audit_logs/{logId}": {
+      "schema": { "$ref": "#/entities/AuditLog" },
+      "description": "Immutable audit trail for state oversight."
+    },
+    "/academic_records/{recordId}": {
+      "schema": { "$ref": "#/entities/AcademicRecord" },
+      "description": "Student subject attendance, internal/external marks, and semester results."
+    },
+    "/timetables/{slotId}": {
+      "schema": { "$ref": "#/entities/TimetableSlot" },
+      "description": "College-scoped weekly lecture and lab timetables."
+    },
+    "/placement_opportunities/{oppId}": {
+      "schema": { "$ref": "#/entities/PlacementOpportunity" },
+      "description": "Campus placements, full-time jobs, and internship drives."
+    },
+    "/placement_applications/{appId}": {
+      "schema": { "$ref": "#/entities/PlacementApplication" },
+      "description": "Student applications to placement and internship drives."
+    },
+    "/student_resumes/{uid}": {
+      "schema": { "$ref": "#/entities/StudentResume" },
+      "description": "Structured career resume documents isolated per student UID."
+    },
+    "/college_services/{serviceId}": {
+      "schema": { "$ref": "#/entities/CollegeService" },
+      "description": "Hostel, Transport, and Library allocations and service requests."
+    },
+    "/college_media/{mediaId}": {
+      "schema": { "$ref": "#/entities/CollegeMedia" },
+      "description": "Verified official college photographs and logos isolated per college with approval governance."
+    }
+  }
+}

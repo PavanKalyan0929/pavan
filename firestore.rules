@@ -1,0 +1,1318 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 1. Global Default-Deny Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // 2. Hardened Global Helpers
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isEmailVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isBootstrappedStateAdmin() {
+      return isEmailVerified() && request.auth.token.email == 'adithyaadhi983@gmail.com';
+    }
+
+    function isStateAdmin() {
+      return isBootstrappedStateAdmin() || (
+        isEmailVerified() &&
+        exists(/databases/$(database)/documents/state_admins/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/state_admins/$(request.auth.uid)).data.active == true
+      );
+    }
+
+    function isActiveCollegeAdmin(collegeId) {
+      return isEmailVerified() &&
+        exists(/databases/$(database)/documents/college_admins/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/college_admins/$(request.auth.uid)).data.active == true &&
+        get(/databases/$(database)/documents/college_admins/$(request.auth.uid)).data.status == 'active' &&
+        get(/databases/$(database)/documents/college_admins/$(request.auth.uid)).data.collegeId == collegeId;
+    }
+
+    function isValidAdminEmailList(listVal) {
+      return listVal is list &&
+        listVal.size() <= 3 &&
+        (listVal.size() < 1 || (listVal[0] is string && listVal[0].size() <= 180)) &&
+        (listVal.size() < 2 || (listVal[1] is string && listVal[1].size() <= 180)) &&
+        (listVal.size() < 3 || (listVal[2] is string && listVal[2].size() <= 180));
+    }
+
+    // 3. Entity Validation Helpers (Synchronized with firebase-blueprint.json)
+    function isValidCollege(data) {
+      return data.keys().hasAll([
+          'id', 'code', 'name', 'district', 'address', 'management',
+          'affiliatedUniversity', 'accreditation', 'verificationStatus',
+          'isDemo', 'coursesCount', 'adminEmails', 'updatedByUid', 'createdAt', 'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'id', 'code', 'name', 'location', 'district', 'address', 'website',
+          'contactEmail', 'contactPhone', 'management', 'category',
+          'affiliatedUniversity', 'accreditation', 'verificationStatus',
+          'isDemo', 'coursesCount', 'courses', 'departments', 'sourceUrl',
+          'lastVerifiedDate', 'integrationStatus', 'integrationAdapter', 'lastSyncAt',
+          'logoUrl', 'mainCampusPhotoUrl', 'mainCampusPhotoStatus', 'photoSource',
+          'photoLicense', 'verifiedPhotosCount', 'studentActivityPhotosCount', 'lastPhotoVerifiedAt',
+          'adminEmails', 'updatedByUid', 'createdAt', 'updatedAt'
+        ]) &&
+        isValidId(data.id) &&
+        data.code is string && data.code.size() >= 1 && data.code.size() <= 32 &&
+        data.name is string && data.name.size() >= 2 && data.name.size() <= 200 &&
+        (!('location' in data) || (data.location is string && data.location.size() <= 120)) &&
+        data.district is string && data.district.size() >= 2 && data.district.size() <= 80 &&
+        data.address is string && data.address.size() >= 2 && data.address.size() <= 300 &&
+        (!('website' in data) || (data.website is string && data.website.size() <= 240)) &&
+        (!('contactEmail' in data) || (data.contactEmail is string && data.contactEmail.size() <= 180)) &&
+        (!('contactPhone' in data) || (data.contactPhone is string && data.contactPhone.size() <= 80)) &&
+        data.management in ['Government', 'Private Aided', 'Private Un-aided', 'Autonomous'] &&
+        (!('category' in data) || data.category in ['Engineering & Technology', 'Degree & PG', 'University Campus', 'Polytechnic & Technical']) &&
+        data.affiliatedUniversity is string && data.affiliatedUniversity.size() >= 2 && data.affiliatedUniversity.size() <= 160 &&
+        data.accreditation is string && data.accreditation.size() >= 2 && data.accreditation.size() <= 160 &&
+        data.verificationStatus in ['DEMO', 'Verified', 'Pending Verification'] &&
+        data.isDemo is bool &&
+        data.coursesCount is number && data.coursesCount >= 0 && data.coursesCount <= 500 &&
+        (!('courses' in data) || (data.courses is list && data.courses.size() <= 40)) &&
+        (!('departments' in data) || (data.departments is list && data.departments.size() <= 40)) &&
+        (!('sourceUrl' in data) || (data.sourceUrl is string && data.sourceUrl.size() <= 240)) &&
+        (!('lastVerifiedDate' in data) || (data.lastVerifiedDate is string && data.lastVerifiedDate.size() <= 40)) &&
+        (!('integrationStatus' in data) || data.integrationStatus in ['Connected', 'Read-Only Sync', 'Requires Integration']) &&
+        (!('integrationAdapter' in data) || (data.integrationAdapter is string && data.integrationAdapter.size() <= 80)) &&
+        (!('lastSyncAt' in data) || (data.lastSyncAt is string && data.lastSyncAt.size() <= 64)) &&
+        (!('logoUrl' in data) || (data.logoUrl is string && data.logoUrl.size() <= 300)) &&
+        (!('mainCampusPhotoUrl' in data) || (data.mainCampusPhotoUrl is string && data.mainCampusPhotoUrl.size() <= 300)) &&
+        (!('mainCampusPhotoStatus' in data) || data.mainCampusPhotoStatus in ['Verified', 'Pending Approval', 'Unavailable']) &&
+        (!('photoSource' in data) || (data.photoSource is string && data.photoSource.size() <= 240)) &&
+        (!('photoLicense' in data) || (data.photoLicense is string && data.photoLicense.size() <= 180)) &&
+        (!('verifiedPhotosCount' in data) || (data.verifiedPhotosCount is number && data.verifiedPhotosCount >= 0 && data.verifiedPhotosCount <= 500)) &&
+        (!('studentActivityPhotosCount' in data) || (data.studentActivityPhotosCount is number && data.studentActivityPhotosCount >= 0 && data.studentActivityPhotosCount <= 500)) &&
+        (!('lastPhotoVerifiedAt' in data) || (data.lastPhotoVerifiedAt is string && data.lastPhotoVerifiedAt.size() <= 64)) &&
+        isValidAdminEmailList(data.adminEmails) &&
+        data.updatedByUid is string && data.updatedByUid.size() <= 128 &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidDepartment(data) {
+      return data.keys().hasAll([
+          'id', 'collegeId', 'collegeCode', 'name', 'code',
+          'hodName', 'contactEmail', 'isDemo', 'createdAt', 'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'id', 'collegeId', 'collegeCode', 'name', 'code',
+          'hodName', 'contactEmail', 'isDemo', 'createdAt', 'updatedAt'
+        ]) &&
+        isValidId(data.id) &&
+        isValidId(data.collegeId) &&
+        data.collegeCode is string && data.collegeCode.size() >= 1 && data.collegeCode.size() <= 32 &&
+        data.name is string && data.name.size() >= 2 && data.name.size() <= 160 &&
+        data.code is string && data.code.size() >= 1 && data.code.size() <= 32 &&
+        data.hodName is string && data.hodName.size() <= 120 &&
+        data.contactEmail is string && data.contactEmail.size() <= 180 &&
+        data.isDemo is bool &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidCourse(data) {
+      return data.keys().hasAll([
+          'id', 'collegeId', 'collegeCode', 'name', 'degreeLevel',
+          'branch', 'durationYears', 'intake', 'isDemo', 'createdAt', 'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'id', 'collegeId', 'collegeCode', 'name', 'degreeLevel',
+          'branch', 'department', 'durationYears', 'intake', 'isDemo', 'createdAt', 'updatedAt'
+        ]) &&
+        isValidId(data.id) &&
+        isValidId(data.collegeId) &&
+        data.collegeCode is string && data.collegeCode.size() >= 1 && data.collegeCode.size() <= 32 &&
+        data.name is string && data.name.size() >= 2 && data.name.size() <= 160 &&
+        data.degreeLevel in ['UG', 'PG', 'Diploma', 'Integrated'] &&
+        data.branch is string && data.branch.size() >= 1 && data.branch.size() <= 120 &&
+        (!('department' in data) || (data.department is string && data.department.size() <= 120)) &&
+        data.durationYears is number && data.durationYears >= 1 && data.durationYears <= 6 &&
+        data.intake is number && data.intake >= 0 && data.intake <= 5000 &&
+        data.isDemo is bool &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidCollegeIntegration(data) {
+      return data.keys().hasAll([
+          'collegeId', 'collegeCode', 'collegeName', 'district', 'adapterType',
+          'status', 'readOnlySync', 'authorizedByOfficer', 'authorizationRef',
+          'endpointUrl', 'lastSyncAt', 'lastSyncStatus', 'recordsSynced', 'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'collegeId', 'collegeCode', 'collegeName', 'district', 'adapterType',
+          'status', 'readOnlySync', 'authorizedByOfficer', 'authorizationRef',
+          'endpointUrl', 'lastSyncAt', 'lastSyncStatus', 'recordsSynced', 'updatedAt'
+        ]) &&
+        isValidId(data.collegeId) &&
+        data.collegeCode is string && data.collegeCode.size() >= 1 && data.collegeCode.size() <= 32 &&
+        data.collegeName is string && data.collegeName.size() >= 2 && data.collegeName.size() <= 200 &&
+        data.district is string && data.district.size() >= 2 && data.district.size() <= 80 &&
+        data.adapterType in ['None', 'REST_API_READONLY', 'CSV_XLSX_IMPORT', 'SFTP_BATCH', 'WEBHOOK_SYNC'] &&
+        data.status in ['Connected', 'Read-Only Sync', 'Requires Integration'] &&
+        data.readOnlySync is bool &&
+        data.authorizedByOfficer is string && data.authorizedByOfficer.size() <= 160 &&
+        data.authorizationRef is string && data.authorizationRef.size() <= 120 &&
+        data.endpointUrl is string && data.endpointUrl.size() <= 240 &&
+        data.lastSyncAt is string && data.lastSyncAt.size() <= 64 &&
+        data.lastSyncStatus in ['Idle', 'Success', 'Partial', 'Failed'] &&
+        data.recordsSynced is number && data.recordsSynced >= 0 && data.recordsSynced <= 1000000 &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidFeeStructure(data) {
+      return data.keys().hasAll([
+          'id', 'collegeId', 'collegeCode', 'academicYear', 'course',
+          'category', 'amount', 'dueDate', 'isDemo', 'updatedByUid', 'createdAt', 'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'id', 'collegeId', 'collegeCode', 'academicYear', 'course',
+          'category', 'amount', 'dueDate', 'isDemo', 'updatedByUid', 'createdAt', 'updatedAt'
+        ]) &&
+        isValidId(data.id) &&
+        isValidId(data.collegeId) &&
+        data.collegeCode is string && data.collegeCode.size() >= 1 && data.collegeCode.size() <= 32 &&
+        data.academicYear is string && data.academicYear.size() >= 2 && data.academicYear.size() <= 32 &&
+        data.course is string && data.course.size() >= 1 && data.course.size() <= 120 &&
+        data.category in ['Tuition Fee', 'Hostel & Mess', 'Exam Fee', 'Lab & Library', 'Transport', 'Miscellaneous'] &&
+        data.amount is number && data.amount >= 0 && data.amount <= 5000000 &&
+        data.dueDate is string && data.dueDate.size() >= 2 && data.dueDate.size() <= 40 &&
+        data.isDemo is bool &&
+        data.updatedByUid is string && data.updatedByUid.size() <= 128 &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidCollegeAdmin(data) {
+      return data.keys().hasAll([
+          'uid', 'email', 'fullName', 'designation', 'collegeId', 'collegeCode',
+          'collegeName', 'status', 'active', 'approvedByUid', 'createdAt', 'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'uid', 'email', 'fullName', 'designation', 'collegeId', 'collegeCode',
+          'collegeName', 'status', 'active', 'approvedByUid', 'createdAt', 'updatedAt'
+        ]) &&
+        isValidId(data.uid) &&
+        data.email is string && data.email.size() >= 3 && data.email.size() <= 180 &&
+        data.fullName is string && data.fullName.size() >= 2 && data.fullName.size() <= 120 &&
+        data.designation is string && data.designation.size() >= 2 && data.designation.size() <= 120 &&
+        isValidId(data.collegeId) &&
+        data.collegeCode is string && data.collegeCode.size() >= 1 && data.collegeCode.size() <= 32 &&
+        data.collegeName is string && data.collegeName.size() >= 2 && data.collegeName.size() <= 200 &&
+        data.status in ['pending', 'active', 'revoked'] &&
+        data.active is bool &&
+        data.approvedByUid is string && data.approvedByUid.size() <= 128 &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidStateAdmin(data) {
+      return data.keys().hasAll(['uid', 'email', 'fullName', 'active', 'createdAt']) &&
+        data.keys().hasOnly(['uid', 'email', 'fullName', 'active', 'createdAt']) &&
+        isValidId(data.uid) &&
+        data.email is string && data.email.size() >= 3 && data.email.size() <= 180 &&
+        data.fullName is string && data.fullName.size() >= 2 && data.fullName.size() <= 120 &&
+        data.active is bool &&
+        data.createdAt is timestamp;
+    }
+
+    function isValidStudent(data) {
+      return data.keys().hasAll([
+          'uid', 'fullName', 'email', 'mobile', 'collegeId', 'collegeCode',
+          'collegeName', 'district', 'studentRollId', 'course', 'branch',
+          'academicYear', 'verificationStatus', 'verifiedByUid', 'collegeAdminEmails',
+          'createdAt', 'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'uid', 'fullName', 'email', 'collegeEmail', 'collegeEmailVerified', 'otpVerifiedAt',
+          'mobile', 'collegeId', 'collegeCode', 'collegeName', 'district', 'studentRollId',
+          'course', 'branch', 'department', 'academicYear', 'admissionYear',
+          'verificationStatus', 'verifiedByUid', 'collegeAdminEmails', 'createdAt', 'updatedAt'
+        ]) &&
+        isValidId(data.uid) &&
+        data.fullName is string && data.fullName.size() >= 2 && data.fullName.size() <= 120 &&
+        data.email is string && data.email.size() >= 3 && data.email.size() <= 180 &&
+        (!('collegeEmail' in data) || (data.collegeEmail is string && data.collegeEmail.size() <= 180)) &&
+        (!('collegeEmailVerified' in data) || data.collegeEmailVerified is bool) &&
+        (!('otpVerifiedAt' in data) || (data.otpVerifiedAt is string && data.otpVerifiedAt.size() <= 64)) &&
+        data.mobile is string && data.mobile.size() >= 10 && data.mobile.size() <= 20 &&
+        isValidId(data.collegeId) &&
+        data.collegeCode is string && data.collegeCode.size() >= 1 && data.collegeCode.size() <= 32 &&
+        data.collegeName is string && data.collegeName.size() >= 2 && data.collegeName.size() <= 200 &&
+        data.district is string && data.district.size() >= 2 && data.district.size() <= 80 &&
+        data.studentRollId is string && data.studentRollId.size() >= 2 && data.studentRollId.size() <= 64 &&
+        data.course is string && data.course.size() >= 2 && data.course.size() <= 120 &&
+        data.branch is string && data.branch.size() >= 1 && data.branch.size() <= 120 &&
+        (!('department' in data) || (data.department is string && data.department.size() <= 120)) &&
+        data.academicYear is string && data.academicYear.size() >= 2 && data.academicYear.size() <= 32 &&
+        (!('admissionYear' in data) || (data.admissionYear is string && data.admissionYear.size() <= 16)) &&
+        data.verificationStatus in ['Pending', 'Verified', 'Rejected'] &&
+        data.verifiedByUid is string && data.verifiedByUid.size() <= 128 &&
+        isValidAdminEmailList(data.collegeAdminEmails) &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidFeeRecord(data) {
+      return data.keys().hasAll([
+          'id', 'studentUid', 'studentRollId', 'studentName', 'collegeId', 'collegeName',
+          'academicYear', 'semester', 'totalFee', 'paidAmount', 'pendingAmount',
+          'isDemo', 'status', 'discrepancyReported', 'discrepancyNote',
+          'collegeAdminEmails', 'updatedByUid', 'createdAt', 'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'id', 'studentUid', 'studentRollId', 'studentName', 'collegeId', 'collegeName',
+          'academicYear', 'semester', 'feeCategory', 'dueDate', 'totalFee', 'paidAmount',
+          'pendingAmount', 'isDemo', 'status', 'discrepancyReported', 'discrepancyNote',
+          'collegeAdminEmails', 'updatedByUid', 'createdAt', 'updatedAt'
+        ]) &&
+        isValidId(data.id) &&
+        isValidId(data.studentUid) &&
+        data.studentRollId is string && data.studentRollId.size() >= 1 && data.studentRollId.size() <= 64 &&
+        data.studentName is string && data.studentName.size() >= 2 && data.studentName.size() <= 120 &&
+        isValidId(data.collegeId) &&
+        data.collegeName is string && data.collegeName.size() >= 2 && data.collegeName.size() <= 200 &&
+        data.academicYear is string && data.academicYear.size() >= 2 && data.academicYear.size() <= 32 &&
+        data.semester is string && data.semester.size() >= 1 && data.semester.size() <= 32 &&
+        (!('feeCategory' in data) || (data.feeCategory is string && data.feeCategory.size() <= 64)) &&
+        (!('dueDate' in data) || (data.dueDate is string && data.dueDate.size() <= 40)) &&
+        data.totalFee is number && data.totalFee >= 0 && data.totalFee <= 5000000 &&
+        data.paidAmount is number && data.paidAmount >= 0 && data.paidAmount <= 5000000 &&
+        data.pendingAmount is number && data.pendingAmount >= 0 && data.pendingAmount <= 5000000 &&
+        data.isDemo is bool &&
+        data.status in ['Pending', 'Partial', 'Paid', 'Disputed'] &&
+        data.discrepancyReported is bool &&
+        data.discrepancyNote is string && data.discrepancyNote.size() <= 600 &&
+        isValidAdminEmailList(data.collegeAdminEmails) &&
+        data.updatedByUid is string && data.updatedByUid.size() <= 128 &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidFeePayment(data) {
+      return data.keys().hasAll([
+          'id', 'feeRecordId', 'studentUid', 'collegeId', 'amount',
+          'receiptNumber', 'paymentMode', 'isDemo', 'paidAtLabel',
+          'collegeAdminEmails', 'recordedByUid', 'createdAt'
+        ]) &&
+        data.keys().hasOnly([
+          'id', 'feeRecordId', 'studentUid', 'collegeId', 'amount',
+          'receiptNumber', 'paymentMode', 'isDemo', 'paidAtLabel',
+          'collegeAdminEmails', 'recordedByUid', 'createdAt'
+        ]) &&
+        isValidId(data.id) &&
+        isValidId(data.feeRecordId) &&
+        isValidId(data.studentUid) &&
+        isValidId(data.collegeId) &&
+        data.amount is number && data.amount > 0 && data.amount <= 5000000 &&
+        data.receiptNumber is string && data.receiptNumber.size() >= 2 && data.receiptNumber.size() <= 64 &&
+        data.paymentMode in ['UPI', 'NEFT', 'Challan', 'Scholarship Reimbursement', 'DEMO'] &&
+        data.isDemo is bool &&
+        data.paidAtLabel is string && data.paidAtLabel.size() >= 2 && data.paidAtLabel.size() <= 64 &&
+        isValidAdminEmailList(data.collegeAdminEmails) &&
+        data.recordedByUid is string && data.recordedByUid.size() <= 128 &&
+        data.createdAt is timestamp;
+    }
+
+    function isValidGrievance(data) {
+      return data.keys().hasAll([
+          'id', 'trackingNumber', 'studentUid', 'studentName', 'contactEmail',
+          'contactMobile', 'collegeId', 'collegeName', 'district', 'category',
+          'subject', 'description', 'aiSuggestedCategory', 'aiUrgency',
+          'aiTriageSummary', 'aiVerificationDisclaimer', 'status',
+          'escalationLevel', 'resolutionNotes', 'handledByUid',
+          'collegeAdminEmails', 'createdAt', 'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'id', 'trackingNumber', 'studentUid', 'studentName', 'contactEmail',
+          'contactMobile', 'collegeId', 'collegeName', 'district', 'category',
+          'subject', 'description', 'aiSuggestedCategory', 'aiUrgency',
+          'aiTriageSummary', 'aiVerificationDisclaimer', 'status',
+          'escalationLevel', 'resolutionNotes', 'handledByUid',
+          'collegeAdminEmails', 'createdAt', 'updatedAt'
+        ]) &&
+        isValidId(data.id) &&
+        data.trackingNumber is string && data.trackingNumber.size() >= 4 && data.trackingNumber.size() <= 40 &&
+        isValidId(data.studentUid) &&
+        data.studentName is string && data.studentName.size() >= 2 && data.studentName.size() <= 120 &&
+        data.contactEmail is string && data.contactEmail.size() >= 3 && data.contactEmail.size() <= 180 &&
+        data.contactMobile is string && data.contactMobile.size() >= 10 && data.contactMobile.size() <= 20 &&
+        isValidId(data.collegeId) &&
+        data.collegeName is string && data.collegeName.size() >= 2 && data.collegeName.size() <= 200 &&
+        data.district is string && data.district.size() >= 2 && data.district.size() <= 80 &&
+        data.category is string && data.category.size() >= 2 && data.category.size() <= 80 &&
+        data.subject is string && data.subject.size() >= 3 && data.subject.size() <= 180 &&
+        data.description is string && data.description.size() >= 10 && data.description.size() <= 2500 &&
+        data.aiSuggestedCategory is string && data.aiSuggestedCategory.size() <= 80 &&
+        data.aiUrgency in ['Low', 'Medium', 'High', 'Critical'] &&
+        data.aiTriageSummary is string && data.aiTriageSummary.size() <= 600 &&
+        data.aiVerificationDisclaimer is string && data.aiVerificationDisclaimer.size() <= 200 &&
+        data.status in ['Submitted', 'Under College Review', 'Escalated to University/State', 'Resolved', 'Closed'] &&
+        data.escalationLevel in ['College Nodal Officer', 'Principal / Dean', 'University Grievance Cell', 'State Oversight'] &&
+        data.resolutionNotes is string && data.resolutionNotes.size() <= 1500 &&
+        data.handledByUid is string && data.handledByUid.size() <= 128 &&
+        isValidAdminEmailList(data.collegeAdminEmails) &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidGrievanceEvidence(data) {
+      return data.keys().hasAll([
+          'id', 'grievanceId', 'studentUid', 'collegeId', 'fileName',
+          'mimeType', 'sizeBytes', 'sha256', 'storagePath', 'aiAssistNote',
+          'humanVerificationStatus', 'verifiedByUid', 'collegeAdminEmails', 'createdAt'
+        ]) &&
+        data.keys().hasOnly([
+          'id', 'grievanceId', 'studentUid', 'collegeId', 'fileName',
+          'mimeType', 'sizeBytes', 'sha256', 'storagePath', 'aiAssistNote',
+          'humanVerificationStatus', 'verifiedByUid', 'collegeAdminEmails', 'createdAt'
+        ]) &&
+        isValidId(data.id) &&
+        isValidId(data.grievanceId) &&
+        isValidId(data.studentUid) &&
+        isValidId(data.collegeId) &&
+        data.fileName is string && data.fileName.size() >= 1 && data.fileName.size() <= 200 &&
+        data.mimeType is string && data.mimeType.size() >= 3 && data.mimeType.size() <= 80 &&
+        data.sizeBytes is number && data.sizeBytes > 0 && data.sizeBytes <= 5242880 &&
+        data.sha256 is string && data.sha256.size() >= 16 && data.sha256.size() <= 80 &&
+        data.storagePath is string && data.storagePath.size() >= 1 && data.storagePath.size() <= 300 &&
+        data.aiAssistNote is string && data.aiAssistNote.size() <= 600 &&
+        data.humanVerificationStatus in ['Pending Human Verification', 'Verified by Authority', 'Needs Clarification'] &&
+        data.verifiedByUid is string && data.verifiedByUid.size() <= 128 &&
+        isValidAdminEmailList(data.collegeAdminEmails) &&
+        data.createdAt is timestamp;
+    }
+
+    function isValidScholarship(data) {
+      return data.keys().hasAll([
+          'id', 'title', 'provider', 'category', 'amountLabel',
+          'eligibilitySummary', 'deadlineLabel', 'officialPortalUrl',
+          'isDemo', 'active', 'createdAt'
+        ]) &&
+        data.keys().hasOnly([
+          'id', 'title', 'provider', 'scholarshipType', 'category', 'amountLabel',
+          'eligibilitySummary', 'requiredDocuments', 'deadlineLabel', 'officialPortalUrl',
+          'isDemo', 'active', 'createdAt'
+        ]) &&
+        isValidId(data.id) &&
+        data.title is string && data.title.size() >= 2 && data.title.size() <= 200 &&
+        data.provider is string && data.provider.size() >= 2 && data.provider.size() <= 160 &&
+        (!('scholarshipType' in data) || data.scholarshipType in ['State Government', 'Central Government', 'Private / Institutional']) &&
+        data.category is string && data.category.size() >= 2 && data.category.size() <= 80 &&
+        data.amountLabel is string && data.amountLabel.size() >= 1 && data.amountLabel.size() <= 120 &&
+        data.eligibilitySummary is string && data.eligibilitySummary.size() >= 5 && data.eligibilitySummary.size() <= 600 &&
+        (!('requiredDocuments' in data) || (data.requiredDocuments is list && data.requiredDocuments.size() <= 20)) &&
+        data.deadlineLabel is string && data.deadlineLabel.size() >= 2 && data.deadlineLabel.size() <= 64 &&
+        data.officialPortalUrl is string && data.officialPortalUrl.size() <= 240 &&
+        data.isDemo is bool &&
+        data.active is bool &&
+        data.createdAt is timestamp;
+    }
+
+    function isValidScholarshipApplication(data) {
+      return data.keys().hasAll([
+          'id', 'scholarshipId', 'scholarshipTitle', 'studentUid', 'studentName',
+          'collegeId', 'collegeName', 'applicationRef', 'status',
+          'grievanceNote', 'collegeAdminEmails', 'createdAt', 'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'id', 'scholarshipId', 'scholarshipTitle', 'studentUid', 'studentName',
+          'collegeId', 'collegeName', 'applicationRef', 'status',
+          'grievanceNote', 'collegeAdminEmails', 'createdAt', 'updatedAt'
+        ]) &&
+        isValidId(data.id) &&
+        isValidId(data.scholarshipId) &&
+        data.scholarshipTitle is string && data.scholarshipTitle.size() >= 2 && data.scholarshipTitle.size() <= 200 &&
+        isValidId(data.studentUid) &&
+        data.studentName is string && data.studentName.size() >= 2 && data.studentName.size() <= 120 &&
+        isValidId(data.collegeId) &&
+        data.collegeName is string && data.collegeName.size() >= 2 && data.collegeName.size() <= 200 &&
+        data.applicationRef is string && data.applicationRef.size() >= 2 && data.applicationRef.size() <= 64 &&
+        data.status in ['Draft', 'Submitted', 'Institution Verified', 'Disbursement Pending', 'Disbursed', 'Query Raised'] &&
+        data.grievanceNote is string && data.grievanceNote.size() <= 600 &&
+        isValidAdminEmailList(data.collegeAdminEmails) &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidNotification(data) {
+      return data.keys().hasAll([
+          'id', 'title', 'message', 'scope', 'category', 'collegeId',
+          'targetUid', 'authorUid', 'authorRole', 'collegeAdminEmails',
+          'isDemo', 'createdAt'
+        ]) &&
+        data.keys().hasOnly([
+          'id', 'title', 'message', 'scope', 'category', 'collegeId',
+          'targetUid', 'authorUid', 'authorRole', 'collegeAdminEmails',
+          'isDemo', 'createdAt'
+        ]) &&
+        isValidId(data.id) &&
+        data.title is string && data.title.size() >= 2 && data.title.size() <= 180 &&
+        data.message is string && data.message.size() >= 2 && data.message.size() <= 1000 &&
+        data.scope in ['state', 'college', 'student'] &&
+        data.category in ['Announcement', 'Scholarship', 'Fee Alert', 'Grievance Update', 'NPTEL', 'Exam Update'] &&
+        data.collegeId is string && data.collegeId.size() <= 128 &&
+        data.targetUid is string && data.targetUid.size() <= 128 &&
+        isValidId(data.authorUid) &&
+        data.authorRole in ['state_admin', 'college_admin', 'system'] &&
+        isValidAdminEmailList(data.collegeAdminEmails) &&
+        data.isDemo is bool &&
+        data.createdAt is timestamp;
+    }
+
+    function isValidAuditLog(data) {
+      return data.keys().hasAll([
+          'id', 'actorUid', 'actorEmail', 'actorRole', 'action',
+          'targetCollection', 'targetId', 'collegeId', 'summary', 'createdAt'
+        ]) &&
+        data.keys().hasOnly([
+          'id', 'actorUid', 'actorEmail', 'actorRole', 'action',
+          'targetCollection', 'targetId', 'collegeId', 'summary', 'createdAt'
+        ]) &&
+        isValidId(data.id) &&
+        isValidId(data.actorUid) &&
+        data.actorEmail is string && data.actorEmail.size() >= 3 && data.actorEmail.size() <= 180 &&
+        data.actorRole in ['state_admin', 'college_admin', 'student'] &&
+        data.action is string && data.action.size() >= 2 && data.action.size() <= 120 &&
+        data.targetCollection is string && data.targetCollection.size() >= 2 && data.targetCollection.size() <= 80 &&
+        data.targetId is string && data.targetId.size() >= 1 && data.targetId.size() <= 128 &&
+        data.collegeId is string && data.collegeId.size() <= 128 &&
+        data.summary is string && data.summary.size() >= 2 && data.summary.size() <= 400 &&
+        data.createdAt is timestamp;
+    }
+
+    function isValidAcademicRecord(data) {
+      return data.keys().hasAll([
+          'id', 'studentUid', 'studentRollId', 'studentName', 'collegeId', 'collegeCode',
+          'academicYear', 'semester', 'subjectCode', 'subjectName', 'facultyName',
+          'credits', 'classesTotal', 'classesAttended', 'internalMarks', 'externalMarks',
+          'totalMarks', 'grade', 'resultStatus', 'isDemo', 'collegeAdminEmails',
+          'updatedByUid', 'createdAt', 'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'id', 'studentUid', 'studentRollId', 'studentName', 'collegeId', 'collegeCode',
+          'academicYear', 'semester', 'subjectCode', 'subjectName', 'facultyName',
+          'credits', 'classesTotal', 'classesAttended', 'internalMarks', 'externalMarks',
+          'totalMarks', 'grade', 'resultStatus', 'isDemo', 'collegeAdminEmails',
+          'updatedByUid', 'createdAt', 'updatedAt'
+        ]) &&
+        isValidId(data.id) &&
+        isValidId(data.studentUid) &&
+        data.studentRollId is string && data.studentRollId.size() >= 1 && data.studentRollId.size() <= 64 &&
+        data.studentName is string && data.studentName.size() >= 2 && data.studentName.size() <= 120 &&
+        isValidId(data.collegeId) &&
+        data.collegeCode is string && data.collegeCode.size() >= 1 && data.collegeCode.size() <= 32 &&
+        data.academicYear is string && data.academicYear.size() >= 2 && data.academicYear.size() <= 32 &&
+        data.semester is string && data.semester.size() >= 1 && data.semester.size() <= 32 &&
+        data.subjectCode is string && data.subjectCode.size() >= 2 && data.subjectCode.size() <= 32 &&
+        data.subjectName is string && data.subjectName.size() >= 2 && data.subjectName.size() <= 160 &&
+        data.facultyName is string && data.facultyName.size() <= 120 &&
+        data.credits is number && data.credits >= 0 && data.credits <= 12 &&
+        data.classesTotal is number && data.classesTotal >= 0 && data.classesTotal <= 500 &&
+        data.classesAttended is number && data.classesAttended >= 0 && data.classesAttended <= data.classesTotal &&
+        data.internalMarks is number && data.internalMarks >= 0 && data.internalMarks <= 100 &&
+        data.externalMarks is number && data.externalMarks >= 0 && data.externalMarks <= 100 &&
+        data.internalMarks + data.externalMarks <= 200 &&
+        data.totalMarks is number && data.totalMarks >= 0 && data.totalMarks <= 200 &&
+        data.grade in ['O', 'A+', 'A', 'B+', 'B', 'C', 'F', 'Pending'] &&
+        data.resultStatus in ['Pass', 'Fail', 'Pending'] &&
+        data.isDemo is bool &&
+        isValidAdminEmailList(data.collegeAdminEmails) &&
+        data.updatedByUid is string && data.updatedByUid.size() <= 128 &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidTimetableSlot(data) {
+      return data.keys().hasAll([
+          'id', 'collegeId', 'collegeCode', 'department', 'academicYear', 'semester',
+          'dayOfWeek', 'startTime', 'endTime', 'subjectCode', 'subjectName',
+          'facultyName', 'roomNumber', 'slotType', 'isDemo', 'updatedByUid',
+          'createdAt', 'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'id', 'collegeId', 'collegeCode', 'department', 'academicYear', 'semester',
+          'dayOfWeek', 'startTime', 'endTime', 'subjectCode', 'subjectName',
+          'facultyName', 'roomNumber', 'slotType', 'isDemo', 'updatedByUid',
+          'createdAt', 'updatedAt'
+        ]) &&
+        isValidId(data.id) &&
+        isValidId(data.collegeId) &&
+        data.collegeCode is string && data.collegeCode.size() >= 1 && data.collegeCode.size() <= 32 &&
+        data.department is string && data.department.size() >= 1 && data.department.size() <= 120 &&
+        data.academicYear is string && data.academicYear.size() >= 2 && data.academicYear.size() <= 32 &&
+        data.semester is string && data.semester.size() >= 1 && data.semester.size() <= 32 &&
+        data.dayOfWeek in ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'] &&
+        data.startTime is string && data.startTime.size() >= 2 && data.startTime.size() <= 20 &&
+        data.endTime is string && data.endTime.size() >= 2 && data.endTime.size() <= 20 &&
+        data.subjectCode is string && data.subjectCode.size() >= 2 && data.subjectCode.size() <= 32 &&
+        data.subjectName is string && data.subjectName.size() >= 2 && data.subjectName.size() <= 160 &&
+        data.facultyName is string && data.facultyName.size() <= 120 &&
+        data.roomNumber is string && data.roomNumber.size() <= 40 &&
+        data.slotType in ['Lecture', 'Lab', 'Tutorial', 'Seminar'] &&
+        data.isDemo is bool &&
+        data.updatedByUid is string && data.updatedByUid.size() <= 128 &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidPlacementOpportunity(data) {
+      return data.keys().hasAll([
+          'id', 'collegeId', 'collegeCode', 'title', 'companyName', 'opportunityType',
+          'roleCategory', 'ctcOrStipend', 'location', 'eligibilityCriteria', 'minCgpa',
+          'deadlineDate', 'applyUrl', 'status', 'description', 'isDemo', 'postedByUid',
+          'collegeAdminEmails', 'createdAt', 'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'id', 'collegeId', 'collegeCode', 'title', 'companyName', 'opportunityType',
+          'roleCategory', 'ctcOrStipend', 'location', 'eligibilityCriteria', 'minCgpa',
+          'deadlineDate', 'applyUrl', 'status', 'description', 'isDemo', 'postedByUid',
+          'collegeAdminEmails', 'createdAt', 'updatedAt'
+        ]) &&
+        isValidId(data.id) &&
+        isValidId(data.collegeId) &&
+        data.collegeCode is string && data.collegeCode.size() >= 1 && data.collegeCode.size() <= 32 &&
+        data.title is string && data.title.size() >= 2 && data.title.size() <= 200 &&
+        data.companyName is string && data.companyName.size() >= 2 && data.companyName.size() <= 160 &&
+        data.opportunityType in ['Campus Placement', 'Full-Time Job', 'Internship'] &&
+        data.roleCategory is string && data.roleCategory.size() >= 2 && data.roleCategory.size() <= 100 &&
+        data.ctcOrStipend is string && data.ctcOrStipend.size() >= 1 && data.ctcOrStipend.size() <= 80 &&
+        data.location is string && data.location.size() >= 2 && data.location.size() <= 120 &&
+        data.eligibilityCriteria is string && data.eligibilityCriteria.size() >= 2 && data.eligibilityCriteria.size() <= 300 &&
+        data.minCgpa is number && data.minCgpa >= 0 && data.minCgpa <= 10 &&
+        data.deadlineDate is string && data.deadlineDate.size() >= 2 && data.deadlineDate.size() <= 40 &&
+        data.applyUrl is string && data.applyUrl.size() <= 240 &&
+        data.status in ['Open', 'Shortlisting', 'Closed'] &&
+        data.description is string && data.description.size() >= 5 && data.description.size() <= 1200 &&
+        data.isDemo is bool &&
+        isValidId(data.postedByUid) &&
+        isValidAdminEmailList(data.collegeAdminEmails) &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidPlacementApplication(data) {
+      return data.keys().hasAll([
+          'id', 'opportunityId', 'opportunityTitle', 'companyName', 'opportunityType',
+          'studentUid', 'studentName', 'studentRollId', 'collegeId', 'collegeName',
+          'cgpaSnapshot', 'resumeSnapshotId', 'coverNote', 'status', 'authorityRemark',
+          'collegeAdminEmails', 'createdAt', 'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'id', 'opportunityId', 'opportunityTitle', 'companyName', 'opportunityType',
+          'studentUid', 'studentName', 'studentRollId', 'collegeId', 'collegeName',
+          'cgpaSnapshot', 'resumeSnapshotId', 'coverNote', 'status', 'authorityRemark',
+          'collegeAdminEmails', 'createdAt', 'updatedAt'
+        ]) &&
+        isValidId(data.id) &&
+        isValidId(data.opportunityId) &&
+        data.opportunityTitle is string && data.opportunityTitle.size() >= 2 && data.opportunityTitle.size() <= 200 &&
+        data.companyName is string && data.companyName.size() >= 2 && data.companyName.size() <= 160 &&
+        data.opportunityType in ['Campus Placement', 'Full-Time Job', 'Internship'] &&
+        isValidId(data.studentUid) &&
+        data.studentName is string && data.studentName.size() >= 2 && data.studentName.size() <= 120 &&
+        data.studentRollId is string && data.studentRollId.size() >= 1 && data.studentRollId.size() <= 64 &&
+        isValidId(data.collegeId) &&
+        data.collegeName is string && data.collegeName.size() >= 2 && data.collegeName.size() <= 200 &&
+        data.cgpaSnapshot is number && data.cgpaSnapshot >= 0 && data.cgpaSnapshot <= 10 &&
+        data.resumeSnapshotId is string && data.resumeSnapshotId.size() <= 128 &&
+        data.coverNote is string && data.coverNote.size() <= 800 &&
+        data.status in ['Applied', 'Shortlisted', 'Interview Scheduled', 'Selected', 'Not Selected', 'Withdrawn'] &&
+        data.authorityRemark is string && data.authorityRemark.size() <= 600 &&
+        isValidAdminEmailList(data.collegeAdminEmails) &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidStudentResume(data) {
+      return data.keys().hasAll([
+          'uid', 'collegeId', 'headline', 'summary', 'cgpa', 'skills',
+          'educationSummary', 'projects', 'certifications', 'linkedinUrl',
+          'githubUrl', 'portfolioUrl', 'collegeAdminEmails', 'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'uid', 'collegeId', 'headline', 'summary', 'cgpa', 'skills',
+          'educationSummary', 'projects', 'certifications', 'linkedinUrl',
+          'githubUrl', 'portfolioUrl', 'collegeAdminEmails', 'updatedAt'
+        ]) &&
+        isValidId(data.uid) &&
+        isValidId(data.collegeId) &&
+        data.headline is string && data.headline.size() >= 2 && data.headline.size() <= 180 &&
+        data.summary is string && data.summary.size() <= 1200 &&
+        data.cgpa is number && data.cgpa >= 0 && data.cgpa <= 10 &&
+        data.skills is list && data.skills.size() <= 30 &&
+        (data.skills.size() == 0 || (data.skills[0] is string && data.skills[0].size() <= 60)) &&
+        data.educationSummary is string && data.educationSummary.size() <= 400 &&
+        data.projects is list && data.projects.size() <= 10 &&
+        (data.projects.size() == 0 || data.projects[0] is map) &&
+        data.certifications is list && data.certifications.size() <= 20 &&
+        (data.certifications.size() == 0 || (data.certifications[0] is string && data.certifications[0].size() <= 120)) &&
+        data.linkedinUrl is string && data.linkedinUrl.size() <= 240 &&
+        data.githubUrl is string && data.githubUrl.size() <= 240 &&
+        data.portfolioUrl is string && data.portfolioUrl.size() <= 240 &&
+        isValidAdminEmailList(data.collegeAdminEmails) &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidCollegeService(data) {
+      return data.keys().hasAll([
+          'id', 'studentUid', 'studentRollId', 'studentName', 'collegeId', 'collegeCode',
+          'serviceType', 'requestTitle', 'referenceCode', 'detailsPrimary',
+          'detailsSecondary', 'status', 'authorityRemark', 'isDemo',
+          'collegeAdminEmails', 'handledByUid', 'createdAt', 'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'id', 'studentUid', 'studentRollId', 'studentName', 'collegeId', 'collegeCode',
+          'serviceType', 'requestTitle', 'referenceCode', 'detailsPrimary',
+          'detailsSecondary', 'status', 'authorityRemark', 'isDemo',
+          'collegeAdminEmails', 'handledByUid', 'createdAt', 'updatedAt'
+        ]) &&
+        isValidId(data.id) &&
+        isValidId(data.studentUid) &&
+        data.studentRollId is string && data.studentRollId.size() >= 1 && data.studentRollId.size() <= 64 &&
+        data.studentName is string && data.studentName.size() >= 2 && data.studentName.size() <= 120 &&
+        isValidId(data.collegeId) &&
+        data.collegeCode is string && data.collegeCode.size() >= 1 && data.collegeCode.size() <= 32 &&
+        data.serviceType in ['Hostel', 'Transport', 'Library'] &&
+        data.requestTitle is string && data.requestTitle.size() >= 2 && data.requestTitle.size() <= 180 &&
+        data.referenceCode is string && data.referenceCode.size() <= 64 &&
+        data.detailsPrimary is string && data.detailsPrimary.size() <= 240 &&
+        data.detailsSecondary is string && data.detailsSecondary.size() <= 240 &&
+        data.status in ['Requested', 'Approved', 'Active', 'Action Required', 'Closed'] &&
+        data.authorityRemark is string && data.authorityRemark.size() <= 600 &&
+        data.isDemo is bool &&
+        isValidAdminEmailList(data.collegeAdminEmails) &&
+        data.handledByUid is string && data.handledByUid.size() <= 128 &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidCollegeMedia(data) {
+      return data.keys().hasAll([
+          'id', 'collegeId', 'collegeCode', 'collegeName', 'district', 'mediaCategory',
+          'title', 'caption', 'imageUrl', 'storagePath', 'mimeType', 'width', 'height',
+          'sizeBytes', 'sha256', 'sourceUrl', 'licenseOrPermission', 'consentAttested',
+          'approvalStatus', 'reviewRemark', 'uploadedByUid', 'uploadedByEmail',
+          'reviewedByUid', 'collegeAdminEmails', 'createdAt', 'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'id', 'collegeId', 'collegeCode', 'collegeName', 'district', 'mediaCategory',
+          'title', 'caption', 'imageUrl', 'storagePath', 'mimeType', 'width', 'height',
+          'sizeBytes', 'sha256', 'sourceUrl', 'licenseOrPermission', 'consentAttested',
+          'approvalStatus', 'reviewRemark', 'uploadedByUid', 'uploadedByEmail',
+          'reviewedByUid', 'collegeAdminEmails', 'createdAt', 'updatedAt'
+        ]) &&
+        isValidId(data.id) &&
+        isValidId(data.collegeId) &&
+        data.collegeCode is string && data.collegeCode.size() >= 1 && data.collegeCode.size() <= 32 &&
+        data.collegeName is string && data.collegeName.size() >= 2 && data.collegeName.size() <= 200 &&
+        data.district is string && data.district.size() >= 2 && data.district.size() <= 80 &&
+        data.mediaCategory in [
+          'Official Logo',
+          'Main Campus & Entrance',
+          'Academic Building',
+          'Classroom & Lecture Hall',
+          'Computer & Engineering Lab',
+          'Library & Reading Room',
+          'Student Activity & Events',
+          'Student-Faculty Communication',
+          'Help Desk & Administration',
+          'Infrastructure & Facilities'
+        ] &&
+        data.title is string && data.title.size() >= 2 && data.title.size() <= 180 &&
+        data.caption is string && data.caption.size() <= 400 &&
+        data.imageUrl is string && data.imageUrl.size() >= 2 && data.imageUrl.size() <= 300 &&
+        data.storagePath is string && data.storagePath.size() >= 2 && data.storagePath.size() <= 300 &&
+        data.mimeType in ['image/jpeg', 'image/png', 'image/webp'] &&
+        data.width is number && data.width >= 1 && data.width <= 12000 &&
+        data.height is number && data.height >= 1 && data.height <= 12000 &&
+        data.sizeBytes is number && data.sizeBytes >= 100 && data.sizeBytes <= 5242880 &&
+        data.sha256 is string && data.sha256.size() >= 16 && data.sha256.size() <= 80 &&
+        data.sourceUrl is string && data.sourceUrl.size() >= 2 && data.sourceUrl.size() <= 300 &&
+        data.licenseOrPermission is string && data.licenseOrPermission.size() >= 2 && data.licenseOrPermission.size() <= 240 &&
+        data.consentAttested == true &&
+        data.approvalStatus in ['Pending Approval', 'Approved', 'Rejected'] &&
+        data.reviewRemark is string && data.reviewRemark.size() <= 500 &&
+        isValidId(data.uploadedByUid) &&
+        data.uploadedByEmail is string && data.uploadedByEmail.size() >= 3 && data.uploadedByEmail.size() <= 180 &&
+        data.reviewedByUid is string && data.reviewedByUid.size() <= 128 &&
+        isValidAdminEmailList(data.collegeAdminEmails) &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    // 4. Collection Rules
+
+    // Colleges, Departments, Courses, Scholarships: Public directory read, admin-only write
+    match /colleges/{collegeId} {
+      allow get: if isValidId(collegeId);
+      allow list: if true;
+      allow create: if isValidId(collegeId) && isStateAdmin() && isValidCollege(incoming()) &&
+        incoming().id == collegeId && incoming().createdAt == request.time && incoming().updatedAt == request.time;
+      allow update: if isValidId(collegeId) && isValidCollege(incoming()) &&
+        incoming().id == existing().id && incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time && (
+          isStateAdmin() ||
+          (isActiveCollegeAdmin(collegeId) &&
+            incoming().diff(existing()).affectedKeys().hasOnly([
+              'address', 'location', 'website', 'contactEmail', 'contactPhone',
+              'affiliatedUniversity', 'accreditation', 'coursesCount', 'courses',
+              'departments', 'updatedByUid', 'updatedAt'
+            ]))
+        );
+      allow delete: if isValidId(collegeId) && isStateAdmin();
+    }
+
+    match /departments/{departmentId} {
+      allow get: if isValidId(departmentId);
+      allow list: if true;
+      allow create: if isValidId(departmentId) && isValidDepartment(incoming()) &&
+        incoming().id == departmentId && incoming().createdAt == request.time && incoming().updatedAt == request.time &&
+        (isStateAdmin() || isActiveCollegeAdmin(incoming().collegeId));
+      allow update: if isValidId(departmentId) && isValidDepartment(incoming()) &&
+        incoming().id == existing().id && incoming().collegeId == existing().collegeId &&
+        incoming().createdAt == existing().createdAt && incoming().updatedAt == request.time &&
+        (isStateAdmin() || isActiveCollegeAdmin(existing().collegeId));
+      allow delete: if isValidId(departmentId) && (isStateAdmin() || isActiveCollegeAdmin(existing().collegeId));
+    }
+
+    match /courses/{courseId} {
+      allow get: if isValidId(courseId);
+      allow list: if true;
+      allow create: if isValidId(courseId) && isValidCourse(incoming()) &&
+        incoming().id == courseId && incoming().createdAt == request.time && incoming().updatedAt == request.time &&
+        (isStateAdmin() || isActiveCollegeAdmin(incoming().collegeId));
+      allow update: if isValidId(courseId) && isValidCourse(incoming()) &&
+        incoming().id == existing().id && incoming().collegeId == existing().collegeId &&
+        incoming().createdAt == existing().createdAt && incoming().updatedAt == request.time &&
+        (isStateAdmin() || isActiveCollegeAdmin(existing().collegeId));
+      allow delete: if isValidId(courseId) && (isStateAdmin() || isActiveCollegeAdmin(existing().collegeId));
+    }
+
+    match /college_integrations/{collegeId} {
+      allow get: if isValidId(collegeId);
+      allow list: if true;
+      allow create: if isValidId(collegeId) && isValidCollegeIntegration(incoming()) &&
+        incoming().collegeId == collegeId && incoming().updatedAt == request.time &&
+        (isStateAdmin() || isActiveCollegeAdmin(collegeId));
+      allow update: if isValidId(collegeId) && isValidCollegeIntegration(incoming()) &&
+        incoming().collegeId == existing().collegeId && incoming().updatedAt == request.time &&
+        (isStateAdmin() || isActiveCollegeAdmin(collegeId));
+      allow delete: if isValidId(collegeId) && isStateAdmin();
+    }
+
+    match /fee_structures/{structureId} {
+      allow get: if isValidId(structureId) && isEmailVerified() &&
+        (isStateAdmin() || isActiveCollegeAdmin(existing().collegeId) ||
+          (exists(/databases/$(database)/documents/students/$(request.auth.uid)) &&
+            get(/databases/$(database)/documents/students/$(request.auth.uid)).data.collegeId == existing().collegeId));
+      allow list: if isEmailVerified();
+      allow create: if isValidId(structureId) && isValidFeeStructure(incoming()) &&
+        incoming().id == structureId && incoming().createdAt == request.time && incoming().updatedAt == request.time &&
+        (isStateAdmin() || isActiveCollegeAdmin(incoming().collegeId));
+      allow update: if isValidId(structureId) && isValidFeeStructure(incoming()) &&
+        incoming().id == existing().id && incoming().collegeId == existing().collegeId &&
+        incoming().createdAt == existing().createdAt && incoming().updatedAt == request.time &&
+        (isStateAdmin() || isActiveCollegeAdmin(existing().collegeId));
+      allow delete: if isValidId(structureId) && (isStateAdmin() || isActiveCollegeAdmin(existing().collegeId));
+    }
+
+    match /scholarships/{scholarshipId} {
+      allow get: if isValidId(scholarshipId);
+      allow list: if true;
+      allow create: if isValidId(scholarshipId) && isStateAdmin() && isValidScholarship(incoming()) &&
+        incoming().id == scholarshipId && incoming().createdAt == request.time;
+      allow update: if isValidId(scholarshipId) && isStateAdmin() && isValidScholarship(incoming()) &&
+        incoming().id == existing().id && incoming().createdAt == existing().createdAt;
+      allow delete: if isValidId(scholarshipId) && isStateAdmin();
+    }
+
+    // State Admins: Read own doc or Bootstrapped State Admin; Write only Bootstrapped State Admin
+    match /state_admins/{uid} {
+      allow get: if isValidId(uid) && isEmailVerified() && (request.auth.uid == uid || isBootstrappedStateAdmin());
+      allow list: if isBootstrappedStateAdmin();
+      allow create: if isValidId(uid) && isBootstrappedStateAdmin() && isValidStateAdmin(incoming()) &&
+        incoming().uid == uid && incoming().createdAt == request.time;
+      allow update: if isValidId(uid) && isBootstrappedStateAdmin() && isValidStateAdmin(incoming()) &&
+        incoming().uid == existing().uid && incoming().createdAt == existing().createdAt;
+      allow delete: if isValidId(uid) && isBootstrappedStateAdmin();
+    }
+
+    // College Admins: Self can request pending access; only State Admin can approve/revoke
+    match /college_admins/{uid} {
+      allow get: if isValidId(uid) && isEmailVerified() && (request.auth.uid == uid || isStateAdmin());
+      allow list: if isBootstrappedStateAdmin() || (isEmailVerified() && resource.data.uid == request.auth.uid);
+      allow create: if isValidId(uid) && isEmailVerified() && isValidCollegeAdmin(incoming()) &&
+        incoming().uid == uid && incoming().createdAt == request.time && incoming().updatedAt == request.time && (
+          isStateAdmin() ||
+          (request.auth.uid == uid && incoming().email == request.auth.token.email &&
+            incoming().status == 'pending' && incoming().active == false && incoming().approvedByUid == '')
+        );
+      allow update: if isValidId(uid) && isStateAdmin() && isValidCollegeAdmin(incoming()) &&
+        incoming().uid == existing().uid && incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time;
+      allow delete: if isValidId(uid) && isStateAdmin();
+    }
+
+    // Students: Strict PII Isolation + Anti-Self-Verification
+    match /students/{uid} {
+      allow get: if isValidId(uid) && isEmailVerified() && (
+        request.auth.uid == uid ||
+        isActiveCollegeAdmin(existing().collegeId) ||
+        isStateAdmin()
+      );
+      allow list: if isEmailVerified() && (
+        resource.data.uid == request.auth.uid ||
+        request.auth.token.email in resource.data.collegeAdminEmails ||
+        isBootstrappedStateAdmin()
+      );
+      allow create: if isValidId(uid) && isEmailVerified() && isValidStudent(incoming()) &&
+        request.auth.uid == uid && incoming().uid == uid &&
+        incoming().email == request.auth.token.email &&
+        incoming().verificationStatus == 'Pending' &&
+        incoming().verifiedByUid == '' &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time;
+      allow update: if isValidId(uid) && isEmailVerified() && isValidStudent(incoming()) &&
+        incoming().uid == existing().uid && incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time && (
+          isStateAdmin() ||
+          (isActiveCollegeAdmin(existing().collegeId) &&
+            incoming().collegeId == existing().collegeId &&
+            incoming().diff(existing()).affectedKeys().hasOnly(['verificationStatus', 'verifiedByUid', 'collegeAdminEmails', 'updatedAt'])) ||
+          (request.auth.uid == uid &&
+            incoming().verificationStatus == existing().verificationStatus &&
+            incoming().verifiedByUid == existing().verifiedByUid &&
+            incoming().diff(existing()).affectedKeys().hasOnly([
+              'fullName', 'mobile', 'studentRollId', 'course', 'branch',
+              'department', 'academicYear', 'admissionYear', 'collegeEmail',
+              'collegeEmailVerified', 'otpVerifiedAt', 'updatedAt'
+            ]))
+        );
+      allow delete: if isValidId(uid) && isStateAdmin();
+    }
+
+    // Fee Records: Student read + discrepancy report only; College/State Admin manage balances
+    match /fee_records/{recordId} {
+      allow get: if isValidId(recordId) && isEmailVerified() && (
+        existing().studentUid == request.auth.uid ||
+        isActiveCollegeAdmin(existing().collegeId) ||
+        isStateAdmin()
+      );
+      allow list: if isEmailVerified() && (
+        resource.data.studentUid == request.auth.uid ||
+        request.auth.token.email in resource.data.collegeAdminEmails ||
+        isBootstrappedStateAdmin()
+      );
+      allow create: if isValidId(recordId) && isEmailVerified() && isValidFeeRecord(incoming()) &&
+        incoming().id == recordId && incoming().createdAt == request.time && incoming().updatedAt == request.time && (
+          isStateAdmin() ||
+          isActiveCollegeAdmin(incoming().collegeId) ||
+          (incoming().studentUid == request.auth.uid && incoming().isDemo == true && incoming().updatedByUid == request.auth.uid)
+        );
+      allow update: if isValidId(recordId) && isEmailVerified() && isValidFeeRecord(incoming()) &&
+        incoming().id == existing().id && incoming().studentUid == existing().studentUid &&
+        incoming().collegeId == existing().collegeId && incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time && (
+          isStateAdmin() ||
+          isActiveCollegeAdmin(existing().collegeId) ||
+          (existing().studentUid == request.auth.uid &&
+            existing().status != 'Disputed' &&
+            incoming().diff(existing()).affectedKeys().hasOnly(['discrepancyReported', 'discrepancyNote', 'status', 'updatedAt']) &&
+            incoming().status == 'Disputed')
+        );
+      allow delete: if isValidId(recordId) && isStateAdmin();
+    }
+
+    // Fee Payments
+    match /fee_payments/{paymentId} {
+      allow get: if isValidId(paymentId) && isEmailVerified() && (
+        existing().studentUid == request.auth.uid ||
+        isActiveCollegeAdmin(existing().collegeId) ||
+        isStateAdmin()
+      );
+      allow list: if isEmailVerified() && (
+        resource.data.studentUid == request.auth.uid ||
+        request.auth.token.email in resource.data.collegeAdminEmails ||
+        isBootstrappedStateAdmin()
+      );
+      allow create: if isValidId(paymentId) && isEmailVerified() && isValidFeePayment(incoming()) &&
+        incoming().id == paymentId && incoming().createdAt == request.time &&
+        exists(/databases/$(database)/documents/fee_records/$(incoming().feeRecordId)) && (
+          isStateAdmin() ||
+          isActiveCollegeAdmin(incoming().collegeId) ||
+          (incoming().studentUid == request.auth.uid && incoming().isDemo == true && incoming().recordedByUid == request.auth.uid)
+        );
+      allow update: if isValidId(paymentId) && isStateAdmin() && isValidFeePayment(incoming()) &&
+        incoming().id == existing().id && incoming().createdAt == existing().createdAt;
+      allow delete: if isValidId(paymentId) && isStateAdmin();
+    }
+
+    // Grievances: Student creates & adds follow-up while non-Closed; College/State Admin triages & resolves
+    match /grievances/{grievanceId} {
+      allow get: if isValidId(grievanceId) && isEmailVerified() && (
+        existing().studentUid == request.auth.uid ||
+        isActiveCollegeAdmin(existing().collegeId) ||
+        isStateAdmin()
+      );
+      allow list: if isEmailVerified() && (
+        resource.data.studentUid == request.auth.uid ||
+        request.auth.token.email in resource.data.collegeAdminEmails ||
+        isBootstrappedStateAdmin()
+      );
+      allow create: if isValidId(grievanceId) && isEmailVerified() && isValidGrievance(incoming()) &&
+        incoming().id == grievanceId &&
+        incoming().studentUid == request.auth.uid &&
+        incoming().status == 'Submitted' &&
+        incoming().handledByUid == '' &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time;
+      allow update: if isValidId(grievanceId) && isEmailVerified() && isValidGrievance(incoming()) &&
+        incoming().id == existing().id && incoming().studentUid == existing().studentUid &&
+        incoming().collegeId == existing().collegeId && incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time && (
+          isStateAdmin() ||
+          isActiveCollegeAdmin(existing().collegeId) ||
+          (existing().studentUid == request.auth.uid &&
+            existing().status != 'Closed' &&
+            incoming().status == existing().status &&
+            incoming().handledByUid == existing().handledByUid &&
+            incoming().diff(existing()).affectedKeys().hasOnly(['description', 'escalationLevel', 'updatedAt']))
+        );
+      allow delete: if isValidId(grievanceId) && isStateAdmin();
+    }
+
+    // Grievance Evidence: Linked to existing Grievance; Human verification controlled by authorities
+    match /grievance_evidence/{evidenceId} {
+      allow get: if isValidId(evidenceId) && isEmailVerified() && (
+        existing().studentUid == request.auth.uid ||
+        isActiveCollegeAdmin(existing().collegeId) ||
+        isStateAdmin()
+      );
+      allow list: if isEmailVerified() && (
+        resource.data.studentUid == request.auth.uid ||
+        request.auth.token.email in resource.data.collegeAdminEmails ||
+        isBootstrappedStateAdmin()
+      );
+      allow create: if isValidId(evidenceId) && isEmailVerified() && isValidGrievanceEvidence(incoming()) &&
+        incoming().id == evidenceId &&
+        incoming().studentUid == request.auth.uid &&
+        incoming().humanVerificationStatus == 'Pending Human Verification' &&
+        incoming().verifiedByUid == '' &&
+        incoming().createdAt == request.time &&
+        exists(/databases/$(database)/documents/grievances/$(incoming().grievanceId));
+      allow update: if isValidId(evidenceId) && isEmailVerified() && isValidGrievanceEvidence(incoming()) &&
+        incoming().id == existing().id && incoming().grievanceId == existing().grievanceId &&
+        incoming().studentUid == existing().studentUid && incoming().createdAt == existing().createdAt && (
+          isStateAdmin() ||
+          (isActiveCollegeAdmin(existing().collegeId) &&
+            incoming().diff(existing()).affectedKeys().hasOnly(['humanVerificationStatus', 'verifiedByUid']))
+        );
+      allow delete: if isValidId(evidenceId) && isStateAdmin();
+    }
+
+    // Scholarship Applications
+    match /scholarship_applications/{applicationId} {
+      allow get: if isValidId(applicationId) && isEmailVerified() && (
+        existing().studentUid == request.auth.uid ||
+        isActiveCollegeAdmin(existing().collegeId) ||
+        isStateAdmin()
+      );
+      allow list: if isEmailVerified() && (
+        resource.data.studentUid == request.auth.uid ||
+        request.auth.token.email in resource.data.collegeAdminEmails ||
+        isBootstrappedStateAdmin()
+      );
+      allow create: if isValidId(applicationId) && isEmailVerified() && isValidScholarshipApplication(incoming()) &&
+        incoming().id == applicationId &&
+        incoming().studentUid == request.auth.uid &&
+        incoming().status in ['Draft', 'Submitted'] &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time;
+      allow update: if isValidId(applicationId) && isEmailVerified() && isValidScholarshipApplication(incoming()) &&
+        incoming().id == existing().id && incoming().studentUid == existing().studentUid &&
+        incoming().collegeId == existing().collegeId && incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time && (
+          isStateAdmin() ||
+          isActiveCollegeAdmin(existing().collegeId) ||
+          (existing().studentUid == request.auth.uid &&
+            incoming().diff(existing()).affectedKeys().hasOnly(['grievanceNote', 'applicationRef', 'status', 'updatedAt']) &&
+            incoming().status in ['Draft', 'Submitted', 'Query Raised'])
+        );
+      allow delete: if isValidId(applicationId) && isStateAdmin();
+    }
+
+    // Notifications: State-wide, College-scoped, or Student-targeted
+    match /notifications/{notificationId} {
+      allow get: if isValidId(notificationId) && isEmailVerified() && (
+        existing().scope == 'state' ||
+        existing().targetUid == request.auth.uid ||
+        isActiveCollegeAdmin(existing().collegeId) ||
+        isStateAdmin()
+      );
+      allow list: if isEmailVerified() && (
+        resource.data.scope == 'state' ||
+        resource.data.targetUid == request.auth.uid ||
+        request.auth.token.email in resource.data.collegeAdminEmails ||
+        isBootstrappedStateAdmin()
+      );
+      allow create: if isValidId(notificationId) && isEmailVerified() && isValidNotification(incoming()) &&
+        incoming().id == notificationId &&
+        incoming().authorUid == request.auth.uid &&
+        incoming().createdAt == request.time && (
+          isStateAdmin() ||
+          (isActiveCollegeAdmin(incoming().collegeId) && incoming().scope in ['college', 'student'] && incoming().authorRole == 'college_admin')
+        );
+      allow update: if isValidId(notificationId) && isStateAdmin() && isValidNotification(incoming()) &&
+        incoming().id == existing().id && incoming().createdAt == existing().createdAt;
+      allow delete: if isValidId(notificationId) && isStateAdmin();
+    }
+
+    // Audit Logs: Append-only for verified actors; read-only for State Admin
+    match /audit_logs/{logId} {
+      allow get: if isValidId(logId) && isStateAdmin();
+      allow list: if isBootstrappedStateAdmin();
+      allow create: if isValidId(logId) && isEmailVerified() && isValidAuditLog(incoming()) &&
+        incoming().id == logId &&
+        incoming().actorUid == request.auth.uid &&
+        incoming().actorEmail == request.auth.token.email &&
+        incoming().createdAt == request.time;
+      allow update, delete: if false;
+    }
+
+    // Academic Records (Attendance, Marks, Exam Results)
+    match /academic_records/{recordId} {
+      allow get: if isValidId(recordId) && isEmailVerified() && (
+        existing().studentUid == request.auth.uid ||
+        isActiveCollegeAdmin(existing().collegeId) ||
+        isStateAdmin()
+      );
+      allow list: if isEmailVerified() && (
+        resource.data.studentUid == request.auth.uid ||
+        request.auth.token.email in resource.data.collegeAdminEmails ||
+        isBootstrappedStateAdmin()
+      );
+      allow create: if isValidId(recordId) && isEmailVerified() && isValidAcademicRecord(incoming()) &&
+        incoming().id == recordId && incoming().createdAt == request.time && incoming().updatedAt == request.time && (
+          isStateAdmin() ||
+          isActiveCollegeAdmin(incoming().collegeId) ||
+          (incoming().studentUid == request.auth.uid &&
+            incoming().isDemo == true &&
+            incoming().updatedByUid == request.auth.uid &&
+            exists(/databases/$(database)/documents/students/$(request.auth.uid)) &&
+            get(/databases/$(database)/documents/students/$(request.auth.uid)).data.collegeId == incoming().collegeId)
+        );
+      allow update: if isValidId(recordId) && isEmailVerified() && isValidAcademicRecord(incoming()) &&
+        incoming().id == existing().id && incoming().studentUid == existing().studentUid &&
+        incoming().collegeId == existing().collegeId && incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time && (
+          isStateAdmin() ||
+          isActiveCollegeAdmin(existing().collegeId)
+        );
+      allow delete: if isValidId(recordId) && isEmailVerified() && (isStateAdmin() || isActiveCollegeAdmin(existing().collegeId));
+    }
+
+    // Institutional Weekly Timetables
+    match /timetables/{slotId} {
+      allow get: if isValidId(slotId) && isEmailVerified() && (
+        isStateAdmin() ||
+        isActiveCollegeAdmin(existing().collegeId) ||
+        (exists(/databases/$(database)/documents/students/$(request.auth.uid)) &&
+          get(/databases/$(database)/documents/students/$(request.auth.uid)).data.collegeId == existing().collegeId)
+      );
+      allow list: if isEmailVerified() && resource.data.collegeId is string && resource.data.subjectCode is string;
+      allow create: if isValidId(slotId) && isEmailVerified() && isValidTimetableSlot(incoming()) &&
+        incoming().id == slotId && incoming().createdAt == request.time && incoming().updatedAt == request.time && (
+          isStateAdmin() ||
+          isActiveCollegeAdmin(incoming().collegeId)
+        );
+      allow update: if isValidId(slotId) && isEmailVerified() && isValidTimetableSlot(incoming()) &&
+        incoming().id == existing().id && incoming().collegeId == existing().collegeId &&
+        incoming().createdAt == existing().createdAt && incoming().updatedAt == request.time && (
+          isStateAdmin() ||
+          isActiveCollegeAdmin(existing().collegeId)
+        );
+      allow delete: if isValidId(slotId) && isEmailVerified() && (isStateAdmin() || isActiveCollegeAdmin(existing().collegeId));
+    }
+
+    // Placement, Job & Internship Drives
+    match /placement_opportunities/{oppId} {
+      allow get: if isValidId(oppId);
+      allow list: if true;
+      allow create: if isValidId(oppId) && isEmailVerified() && isValidPlacementOpportunity(incoming()) &&
+        incoming().id == oppId && incoming().postedByUid == request.auth.uid &&
+        incoming().createdAt == request.time && incoming().updatedAt == request.time && (
+          isStateAdmin() ||
+          (incoming().collegeId != 'STATEWIDE' && isActiveCollegeAdmin(incoming().collegeId))
+        );
+      allow update: if isValidId(oppId) && isEmailVerified() && isValidPlacementOpportunity(incoming()) &&
+        incoming().id == existing().id && incoming().collegeId == existing().collegeId &&
+        incoming().createdAt == existing().createdAt && incoming().updatedAt == request.time && (
+          isStateAdmin() ||
+          (existing().collegeId != 'STATEWIDE' && isActiveCollegeAdmin(existing().collegeId))
+        );
+      allow delete: if isValidId(oppId) && (
+        isStateAdmin() ||
+        (existing().collegeId != 'STATEWIDE' && isActiveCollegeAdmin(existing().collegeId))
+      );
+    }
+
+    // Placement & Internship Applications
+    match /placement_applications/{appId} {
+      allow get: if isValidId(appId) && isEmailVerified() && (
+        existing().studentUid == request.auth.uid ||
+        isActiveCollegeAdmin(existing().collegeId) ||
+        isStateAdmin()
+      );
+      allow list: if isEmailVerified() && (
+        resource.data.studentUid == request.auth.uid ||
+        request.auth.token.email in resource.data.collegeAdminEmails ||
+        isBootstrappedStateAdmin()
+      );
+      allow create: if isValidId(appId) && isEmailVerified() && isValidPlacementApplication(incoming()) &&
+        incoming().id == appId &&
+        incoming().studentUid == request.auth.uid &&
+        incoming().status == 'Applied' &&
+        incoming().authorityRemark == '' &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time;
+      allow update: if isValidId(appId) && isEmailVerified() && isValidPlacementApplication(incoming()) &&
+        incoming().id == existing().id && incoming().studentUid == existing().studentUid &&
+        incoming().collegeId == existing().collegeId && incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time && (
+          isStateAdmin() ||
+          isActiveCollegeAdmin(existing().collegeId) ||
+          (existing().studentUid == request.auth.uid &&
+            existing().status == 'Applied' &&
+            incoming().status == 'Withdrawn' &&
+            incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt']))
+        );
+      allow delete: if isValidId(appId) && isStateAdmin();
+    }
+
+    // Student Resumes (Private to Student Owner + College/State Authorities)
+    match /student_resumes/{uid} {
+      allow get: if isValidId(uid) && isEmailVerified() && (
+        request.auth.uid == uid ||
+        isActiveCollegeAdmin(existing().collegeId) ||
+        isStateAdmin()
+      );
+      allow list: if isEmailVerified() && (
+        resource.data.uid == request.auth.uid ||
+        request.auth.token.email in resource.data.collegeAdminEmails ||
+        isBootstrappedStateAdmin()
+      );
+      allow create: if isValidId(uid) && isEmailVerified() && isValidStudentResume(incoming()) &&
+        request.auth.uid == uid && incoming().uid == uid && incoming().updatedAt == request.time;
+      allow update: if isValidId(uid) && isEmailVerified() && isValidStudentResume(incoming()) &&
+        incoming().uid == existing().uid && incoming().collegeId == existing().collegeId &&
+        incoming().updatedAt == request.time && (
+          request.auth.uid == uid ||
+          isStateAdmin()
+        );
+      allow delete: if isValidId(uid) && (request.auth.uid == uid || isStateAdmin());
+    }
+
+    // College Services (Hostel, Transport, Library)
+    match /college_services/{serviceId} {
+      allow get: if isValidId(serviceId) && isEmailVerified() && (
+        existing().studentUid == request.auth.uid ||
+        isActiveCollegeAdmin(existing().collegeId) ||
+        isStateAdmin()
+      );
+      allow list: if isEmailVerified() && (
+        resource.data.studentUid == request.auth.uid ||
+        request.auth.token.email in resource.data.collegeAdminEmails ||
+        isBootstrappedStateAdmin()
+      );
+      allow create: if isValidId(serviceId) && isEmailVerified() && isValidCollegeService(incoming()) &&
+        incoming().id == serviceId && incoming().createdAt == request.time && incoming().updatedAt == request.time && (
+          isStateAdmin() ||
+          isActiveCollegeAdmin(incoming().collegeId) ||
+          (incoming().studentUid == request.auth.uid && (
+            (incoming().status == 'Requested' && incoming().handledByUid == '' && incoming().authorityRemark == '') ||
+            (incoming().isDemo == true && incoming().handledByUid == request.auth.uid)
+          ))
+        );
+      allow update: if isValidId(serviceId) && isEmailVerified() && isValidCollegeService(incoming()) &&
+        incoming().id == existing().id && incoming().studentUid == existing().studentUid &&
+        incoming().collegeId == existing().collegeId && incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time && (
+          isStateAdmin() ||
+          isActiveCollegeAdmin(existing().collegeId) ||
+          (existing().studentUid == request.auth.uid &&
+            existing().status in ['Requested', 'Action Required'] &&
+            incoming().status == 'Closed' &&
+            incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt']))
+        );
+      allow delete: if isValidId(serviceId) && (isStateAdmin() || isActiveCollegeAdmin(existing().collegeId));
+    }
+
+    // Institutional Photographs & Logos: Public read for Approved only; College Admins submit pending photos; State Admin approves/rejects
+    match /college_media/{mediaId} {
+      allow get: if isValidId(mediaId) && (
+        existing().approvalStatus == 'Approved' ||
+        isStateAdmin() ||
+        isActiveCollegeAdmin(existing().collegeId) ||
+        (isEmailVerified() && existing().uploadedByUid == request.auth.uid)
+      );
+      allow list: if resource.data.approvalStatus == 'Approved' ||
+        isBootstrappedStateAdmin() ||
+        (isEmailVerified() && (
+          resource.data.uploadedByUid == request.auth.uid ||
+          request.auth.token.email in resource.data.collegeAdminEmails
+        ));
+      allow create: if isValidId(mediaId) && isEmailVerified() && isValidCollegeMedia(incoming()) &&
+        incoming().id == mediaId &&
+        incoming().uploadedByUid == request.auth.uid &&
+        incoming().uploadedByEmail == request.auth.token.email &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time && (
+          isStateAdmin() ||
+          (isActiveCollegeAdmin(incoming().collegeId) &&
+            incoming().approvalStatus == 'Pending Approval' &&
+            incoming().reviewedByUid == '')
+        );
+      allow update: if isValidId(mediaId) && isEmailVerified() && isValidCollegeMedia(incoming()) &&
+        incoming().id == existing().id &&
+        incoming().collegeId == existing().collegeId &&
+        incoming().uploadedByUid == existing().uploadedByUid &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time && (
+          isStateAdmin() ||
+          (isActiveCollegeAdmin(existing().collegeId) &&
+            incoming().approvalStatus == 'Pending Approval' &&
+            incoming().reviewedByUid == '' &&
+            incoming().diff(existing()).affectedKeys().hasOnly([
+              'mediaCategory', 'title', 'caption', 'sourceUrl', 'licenseOrPermission',
+              'approvalStatus', 'reviewRemark', 'reviewedByUid', 'updatedAt'
+            ]))
+        );
+      allow delete: if isValidId(mediaId) && isEmailVerified() && (
+        isStateAdmin() ||
+        isActiveCollegeAdmin(existing().collegeId)
+      );
+    }
+  }
+}
